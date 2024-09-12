@@ -1,6 +1,6 @@
 package Bitcoin::libsecp256k1;
 
-use v5.14;
+use v5.10;
 use warnings;
 
 require XSLoader;

@@ -1,5 +1,5 @@
 use Test2::V0;
-use Bitcoin::libsecp256k1;
+use Bitcoin::Secp256k1;
 
 ################################################################################
 # This tests whether blah blah blah

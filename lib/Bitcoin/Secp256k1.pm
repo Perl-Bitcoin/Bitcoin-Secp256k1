@@ -1,10 +1,10 @@
-package Bitcoin::libsecp256k1;
+package Bitcoin::Secp256k1;
 
 use v5.10;
 use warnings;
 
 require XSLoader;
-XSLoader::load('Bitcoin::libsecp256k1', $Bitcoin::libsecp256k1::VERSION);
+XSLoader::load('Bitcoin::Secp256k1', $Bitcoin::Secp256k1::VERSION);
 
 1;
 
@@ -12,11 +12,11 @@ __END__
 
 =head1 NAME
 
-Bitcoin::libsecp256k1 - New module
+Bitcoin::Secp256k1 - New module
 
 =head1 SYNOPSIS
 
-	use Bitcoin::libsecp256k1;
+	use Bitcoin::Secp256k1;
 
 	# do something
 

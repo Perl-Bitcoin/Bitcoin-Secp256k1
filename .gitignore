@@ -1,6 +1,5 @@
 /.build
 /.tidyall.d
-/Bitcoin-libsecp256k1*
+/Bitcoin-Secp256k1*
 *.tar.gz
-
 

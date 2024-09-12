@@ -5,7 +5,7 @@
 
 #include <secp256k1.h>
 
-MODULE = Bitcoin::libsecp256k1				PACKAGE = Bitcoin::libsecp256k1
+MODULE = Bitcoin::Secp256k1				PACKAGE = Bitcoin::Secp256k1
 
 PROTOTYPES: DISABLED
 

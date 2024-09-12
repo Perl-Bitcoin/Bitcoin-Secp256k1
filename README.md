@@ -1,8 +1,8 @@
-# Bitcoin::libsecp256k1
+# Bitcoin::Secp256k1
 A Perl module for blah blah blah
 
 ## Code and documentation
-[Bitcoin::libsecp256k1 on CPAN](https://metacpan.org/release/Bitcoin-libsecp256k1)
+[Bitcoin::Secp256k1 on CPAN](https://metacpan.org/release/Bitcoin-Secp256k1)
 
 ## Bugs and feature requests
 Please use the Github's issue tracker to file both bugs and feature requests.
@@ -15,5 +15,4 @@ bigger so we can talk it through.
 
 ### Author
 Bartosz Jarzyna <bbrtj.pro@gmail.com>
-
 

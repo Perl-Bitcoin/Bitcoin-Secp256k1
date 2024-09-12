@@ -5,6 +5,13 @@
 
 #include <secp256k1.h>
 
+secp256k1_context* ctx_from_perl(SV* self)
+{
+	return (secp256k1_context*) SvIV(SvRV(self));
+}
+
+/* XS code below */
+
 MODULE = Bitcoin::Secp256k1				PACKAGE = Bitcoin::Secp256k1
 
 PROTOTYPES: DISABLED
@@ -30,8 +37,7 @@ void
 DESTROY(self)
 		SV *self
 	CODE:
-		secp256k1_context *secp_ctx = (secp256k1_context*) SvIV(SvRV(self));
-		secp256k1_context_destroy(secp_ctx);
+		secp256k1_context_destroy(ctx_from_perl(self));
 
 BOOT:
 	secp256k1_selftest();

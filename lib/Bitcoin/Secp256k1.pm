@@ -2,6 +2,7 @@ package Bitcoin::Secp256k1;
 
 use v5.10;
 use warnings;
+use Bytes::Random::Secure;
 
 require XSLoader;
 XSLoader::load('Bitcoin::Secp256k1', $Bitcoin::Secp256k1::VERSION);

@@ -6,3 +6,5 @@ on 'configure' => sub {
 	requires 'Alien::libsecp256k1' => '0';
 };
 
+requires 'Bytes::Random::Secure' => '0';
+

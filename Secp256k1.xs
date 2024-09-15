@@ -7,9 +7,59 @@
 
 #define CURVE_SIZE 32
 
-secp256k1_context* ctx_from_perl(SV* self)
+typedef struct {
+	secp256k1_context* ctx;
+	secp256k1_pubkey* pubkey;
+	secp256k1_ecdsa_signature* signature;
+} secp256k1_perl;
+
+void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey);
+void secp256k1_perl_replace_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_signature *new_signature);
+
+secp256k1_perl* secp256k1_perl_create(unsigned char *randomize, int len)
 {
-	return (secp256k1_context*) SvIV(SvRV(self));
+	secp256k1_context *secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+	if (len != CURVE_SIZE || !secp256k1_context_randomize(secp_ctx, randomize)) {
+		secp256k1_context_destroy(secp_ctx);
+		croak("Failed to randomize secp256k1 context");
+	}
+
+	secp256k1_perl *perl_ctx = malloc(sizeof(*perl_ctx));
+	perl_ctx->ctx = secp_ctx;
+	perl_ctx->pubkey = NULL;
+	perl_ctx->signature = NULL;
+	return perl_ctx;
+}
+
+void secp256k1_perl_destroy(secp256k1_perl *perl_ctx)
+{
+	secp256k1_perl_replace_pubkey(perl_ctx, NULL);
+	secp256k1_perl_replace_signature(perl_ctx, NULL);
+	secp256k1_context_destroy(perl_ctx->ctx);
+	free(perl_ctx);
+}
+
+void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey)
+{
+	if (perl_ctx->pubkey != NULL) {
+		free(perl_ctx->pubkey);
+	}
+
+	perl_ctx->pubkey = new_pubkey;
+}
+
+void secp256k1_perl_replace_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_signature *new_signature)
+{
+	if (perl_ctx->signature != NULL) {
+		free(perl_ctx->signature);
+	}
+
+	perl_ctx->signature = new_signature;
+}
+
+secp256k1_perl* ctx_from_sv(SV* self)
+{
+	return (secp256k1_perl*) SvIV(SvRV(self));
 }
 
 /* XS code below */
@@ -22,8 +72,6 @@ SV*
 new(classname)
 		SV *classname
 	CODE:
-		secp256k1_context *secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-
 		/* Calling Bytes::Random::Secure to randomize context */
 		dSP;
 		PUSHMARK(SP);
@@ -44,20 +92,19 @@ new(classname)
 		}
 
 		tmp = POPs;
+		PUTBACK;
+
 		STRLEN len;
 		unsigned char *randomize = SvPVbyte(tmp, len);
-		if (len != CURVE_SIZE || !secp256k1_context_randomize(secp_ctx, randomize)) {
-			croak("Failed to randomize secp256k1 context");
-		}
 
 		/* Randomness dump */
 		/* for (int i = 0; i < len; ++i) { warn("%d: %d", i, randomize[i]); } */
 
-		PUTBACK;
+		secp256k1_perl* ctx = secp256k1_perl_create(randomize, len);
 
 		/* Blessing the object */
 		SV *secp_sv = newSViv(0);
-		RETVAL = sv_setref_iv(secp_sv, SvPVbyte_nolen(classname), (unsigned long) secp_ctx);
+		RETVAL = sv_setref_iv(secp_sv, SvPVbyte_nolen(classname), (unsigned long) ctx);
 		SvREADONLY_on(secp_sv);
 	OUTPUT:
 		RETVAL
@@ -66,7 +113,7 @@ void
 DESTROY(self)
 		SV *self
 	CODE:
-		secp256k1_context_destroy(ctx_from_perl(self));
+		secp256k1_perl_destroy(ctx_from_sv(self));
 
 BOOT:
 	secp256k1_selftest();

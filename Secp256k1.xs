@@ -16,7 +16,7 @@ typedef struct {
 void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey);
 void secp256k1_perl_replace_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_signature *new_signature);
 
-secp256k1_perl* secp256k1_perl_create(unsigned char *randomize, int len)
+secp256k1_perl* secp256k1_perl_create(unsigned char *randomize, size_t len)
 {
 	secp256k1_context *secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 	if (len != CURVE_SIZE || !secp256k1_context_randomize(secp_ctx, randomize)) {
@@ -24,7 +24,7 @@ secp256k1_perl* secp256k1_perl_create(unsigned char *randomize, int len)
 		croak("Failed to randomize secp256k1 context");
 	}
 
-	secp256k1_perl *perl_ctx = malloc(sizeof(*perl_ctx));
+	secp256k1_perl *perl_ctx = malloc(sizeof *perl_ctx);
 	perl_ctx->ctx = secp_ctx;
 	perl_ctx->pubkey = NULL;
 	perl_ctx->signature = NULL;
@@ -82,7 +82,7 @@ new(classname)
 		PUSHs(tmp);
 		PUTBACK;
 
-		int count = call_pv("Bytes::Random::Secure::random_bytes", G_SCALAR);
+		size_t count = call_pv("Bytes::Random::Secure::random_bytes", G_SCALAR);
 		SvREFCNT_dec(tmp);
 
 		SPAGAIN;
@@ -106,6 +106,61 @@ new(classname)
 		SV *secp_sv = newSViv(0);
 		RETVAL = sv_setref_iv(secp_sv, SvPVbyte_nolen(classname), (unsigned long) ctx);
 		SvREADONLY_on(secp_sv);
+	OUTPUT:
+		RETVAL
+
+SV*
+_pubkey(self, ...)
+		SV *self
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		if (items > 1 && SvOK(ST(1))) {
+			SV *new_pubkey = ST(1);
+			if (SvROK(new_pubkey)) {
+				croak("public key must not be a reference");
+			}
+
+			size_t key_size;
+			unsigned char *key = SvPVbyte(new_pubkey, key_size);
+
+			secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
+			int result = secp256k1_ec_pubkey_parse(
+				ctx->ctx,
+				result_pubkey,
+				key,
+				key_size
+			);
+
+			if (!result) {
+				free(result_pubkey);
+				croak("the input does not appear to be a valid public key");
+			}
+
+			secp256k1_perl_replace_pubkey(ctx, result_pubkey);
+		}
+
+		unsigned int compression = SECP256K1_EC_COMPRESSED;
+
+		if (items > 2 && !SvTRUE(ST(2))) {
+			compression = SECP256K1_EC_UNCOMPRESSED;
+		}
+
+		if (ctx->pubkey != NULL) {
+			unsigned char key_output[65];
+			size_t key_size = 65;
+			secp256k1_ec_pubkey_serialize(
+				ctx->ctx,
+				key_output,
+				&key_size,
+				ctx->pubkey,
+				compression
+			);
+
+			RETVAL = newSVpv(key_output, key_size);
+		}
+		else {
+			RETVAL = &PL_sv_undef;
+		}
 	OUTPUT:
 		RETVAL
 

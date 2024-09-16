@@ -95,7 +95,7 @@ new(classname)
 		PUTBACK;
 
 		STRLEN len;
-		unsigned char *randomize = SvPVbyte(tmp, len);
+		unsigned char *randomize = (unsigned char*) SvPVbyte(tmp, len);
 
 		/* Randomness dump */
 		/* for (int i = 0; i < len; ++i) { warn("%d: %d", i, randomize[i]); } */
@@ -122,7 +122,7 @@ _pubkey(self, ...)
 			}
 
 			size_t key_size;
-			unsigned char *key = SvPVbyte(new_pubkey, key_size);
+			unsigned char *key = (unsigned char*) SvPVbyte(new_pubkey, key_size);
 
 			secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
 			int result = secp256k1_ec_pubkey_parse(
@@ -157,7 +157,7 @@ _pubkey(self, ...)
 				compression
 			);
 
-			RETVAL = newSVpv(key_output, key_size);
+			RETVAL = newSVpv((char*) key_output, key_size);
 		}
 		else {
 			RETVAL = &PL_sv_undef;
@@ -178,7 +178,7 @@ _signature(self, ...)
 			}
 
 			size_t signature_size;
-			unsigned char *signature = SvPVbyte(new_signature, signature_size);
+			unsigned char *signature = (unsigned char*) SvPVbyte(new_signature, signature_size);
 
 			secp256k1_ecdsa_signature *result_signature = malloc(sizeof *result_signature);
 			int result = secp256k1_ecdsa_signature_parse_der(
@@ -206,7 +206,7 @@ _signature(self, ...)
 				ctx->signature
 			);
 
-			RETVAL = newSVpv(signature_output, signature_size);
+			RETVAL = newSVpv((char*) signature_output, signature_size);
 		}
 		else {
 			RETVAL = &PL_sv_undef;

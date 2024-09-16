@@ -242,6 +242,43 @@ _verify(self, message)
 	OUTPUT:
 		RETVAL
 
+SV*
+_sign(self, privkey, message)
+		SV* self
+		SV* privkey
+		SV* message
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+
+		size_t message_size;
+		unsigned char *message_str = (unsigned char*) SvPVbyte(message, message_size);
+		if (message_size != CURVE_SIZE) {
+			croak("signing requires a 32-byte message hash");
+		}
+
+		size_t seckey_size;
+		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
+		if (seckey_size != CURVE_SIZE) {
+			croak("signing requires a 32-byte secret key");
+		}
+
+		secp256k1_ecdsa_signature *result_signature = malloc(sizeof *result_signature);
+		int result = secp256k1_ecdsa_sign(
+			ctx->ctx,
+			result_signature,
+			message_str,
+			seckey_str,
+			NULL,
+			NULL
+		);
+
+		if (!result) {
+			free(result_signature);
+			croak("signing failed (nonce generation problem?)");
+		}
+
+		secp256k1_perl_replace_signature(ctx, result_signature);
+
 void
 DESTROY(self)
 		SV *self

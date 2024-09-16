@@ -214,6 +214,28 @@ _signature(self, ...)
 	OUTPUT:
 		RETVAL
 
+# Normalizes a signature. Returns false value if signature was already normalized
+SV*
+_normalize(self)
+		SV *self
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		if (ctx->signature == NULL) {
+			croak("normalization requires a signature");
+		}
+
+		secp256k1_ecdsa_signature *result_signature = malloc(sizeof *result_signature);
+		int result = secp256k1_ecdsa_signature_normalize(
+			ctx->ctx,
+			result_signature,
+			ctx->signature
+		);
+
+		secp256k1_perl_replace_signature(ctx, result_signature);
+		RETVAL = result ? &PL_sv_yes : &PL_sv_no;
+	OUTPUT:
+		RETVAL
+
 SV*
 _verify(self, message)
 		SV *self

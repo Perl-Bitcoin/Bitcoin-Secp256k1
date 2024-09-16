@@ -19,6 +19,8 @@ my $sample_preimage = pack 'H*',
 	'0100000096b827c8483d4e9b96712b6713a7b68d6e8003a781feba36c31143470b4efd3752b0a642eea2fb7ae638c36f6252b6750293dbe574a806984b8e4d8548339a3bef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a010000001976a9141d0f172a0ecb48aee1be1f2687d2963ae33f71a188ac0046c32300000000ffffffff863ef3e1a92afbfdb97f31ad0fc7683ee943e9abcf2501590ff8f6551f47e5e51100000001000000';
 my $sample_sig = pack 'H*',
 	'304402203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a0220573a954c4518331561406f90300e8f3358f51928d43c212a8caed02de67eebee';
+my $sample_sig_unnormalized = pack 'H*',
+	'304502203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a022100a8c56ab3bae7ccea9ebf906fcff170cb61b9c3bddb0c7f1133238e5ee9b75553';
 
 subtest 'should create and destroy' => sub {
 	$secp = Bitcoin::Secp256k1->new();
@@ -57,6 +59,14 @@ subtest 'should generate a signature' => sub {
 
 	$secp->_sign($sample_privkey, $sample_digest);
 	is $secp->_signature, $sample_sig, 'signing ok';
+};
+
+subtest 'should normalize a signature' => sub {
+	$secp->_signature($sample_sig_unnormalized);
+
+	ok $secp->_normalize, 'signature normalized ok';
+	is $secp->_signature, $sample_sig, 'signature ok';
+	ok !$secp->_normalize, 'already normalized ok';
 };
 
 done_testing;

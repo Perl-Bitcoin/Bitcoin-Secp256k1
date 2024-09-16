@@ -214,6 +214,34 @@ _signature(self, ...)
 	OUTPUT:
 		RETVAL
 
+SV*
+_verify(self, message)
+		SV *self
+		SV *message
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		if (ctx->pubkey == NULL || ctx->signature == NULL) {
+			croak("verification requires both pubkey and signature");
+		}
+
+		size_t message_size;
+		unsigned char *message_str = (unsigned char*) SvPVbyte(message, message_size);
+
+		if (message_size != CURVE_SIZE) {
+			croak("verification requires a 32-byte message hash");
+		}
+
+		int result = secp256k1_ecdsa_verify(
+			ctx->ctx,
+			ctx->signature,
+			message_str,
+			ctx->pubkey
+		);
+
+		RETVAL = result ? &PL_sv_yes : &PL_sv_no;
+	OUTPUT:
+		RETVAL
+
 void
 DESTROY(self)
 		SV *self

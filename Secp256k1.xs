@@ -237,6 +237,33 @@ _normalize(self)
 		RETVAL
 
 SV*
+_create_pubkey(self, privkey)
+		SV *self
+		SV *privkey
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+
+		size_t seckey_size;
+		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
+		if (seckey_size != CURVE_SIZE) {
+			croak("creating a pubkey requires a 32-byte secret key");
+		}
+
+		secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
+		int result = secp256k1_ec_pubkey_create(
+			ctx->ctx,
+			result_pubkey,
+			seckey_str
+		);
+
+		if (!result) {
+			free(result_pubkey);
+			croak("creating pubkey failed (invalid private key?)");
+		}
+
+		secp256k1_perl_replace_pubkey(ctx, result_pubkey);
+
+SV*
 _verify(self, message)
 		SV *self
 		SV *message

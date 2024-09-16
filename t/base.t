@@ -42,6 +42,11 @@ subtest 'should import and export signature' => sub {
 	is $secp->_signature, $sample_sig, 'getter ok';
 };
 
+subtest 'should generate a public key' => sub {
+	$secp->_create_pubkey($sample_privkey);
+	is $secp->_pubkey, $sample_pubkey, 'pubkey ok';
+};
+
 subtest 'should verify a signature' => sub {
 	my $sample_partial_digest = sha256($sample_preimage);
 	my $sample_digest = sha256($sample_partial_digest);

@@ -109,6 +109,7 @@ new(classname)
 	OUTPUT:
 		RETVAL
 
+# Getter / setter for the public key
 SV*
 _pubkey(self, ...)
 		SV *self
@@ -157,6 +158,55 @@ _pubkey(self, ...)
 			);
 
 			RETVAL = newSVpv(key_output, key_size);
+		}
+		else {
+			RETVAL = &PL_sv_undef;
+		}
+	OUTPUT:
+		RETVAL
+
+# Getter / setter for the signature
+SV*
+_signature(self, ...)
+		SV *self
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		if (items > 1 && SvOK(ST(1))) {
+			SV *new_signature = ST(1);
+			if (SvROK(new_signature)) {
+				croak("signature must not be a reference");
+			}
+
+			size_t signature_size;
+			unsigned char *signature = SvPVbyte(new_signature, signature_size);
+
+			secp256k1_ecdsa_signature *result_signature = malloc(sizeof *result_signature);
+			int result = secp256k1_ecdsa_signature_parse_der(
+				ctx->ctx,
+				result_signature,
+				signature,
+				signature_size
+			);
+
+			if (!result) {
+				free(result_signature);
+				croak("the input does not appear to be a valid signature");
+			}
+
+			secp256k1_perl_replace_signature(ctx, result_signature);
+		}
+
+		if (ctx->signature != NULL) {
+			unsigned char signature_output[72];
+			size_t signature_size = 72;
+			secp256k1_ecdsa_signature_serialize_der(
+				ctx->ctx,
+				signature_output,
+				&signature_size,
+				ctx->signature
+			);
+
+			RETVAL = newSVpv(signature_output, signature_size);
 		}
 		else {
 			RETVAL = &PL_sv_undef;

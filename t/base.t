@@ -26,5 +26,15 @@ subtest 'can import and export pubkey' => sub {
 	is $secp->_pubkey(undef, 0), $pubkey_unc_bytes, 'getter with explicit (un)compression ok';
 };
 
+subtest 'can import and export signature' => sub {
+	my $sample_sig =
+		'3045022100a68b7adade2a93bf058145fdbd37b46e347d7fb5478548bc89302316159eccb9022015b7ffe980a084589cdbc92f9370d112aedbb60c63d436ea56e8875e84ed21fe';
+	my $sig_bytes = pack 'H*', $sample_sig;
+
+	is $secp->_signature, undef, 'starting sig ok';
+	is $secp->_signature($sig_bytes), $sig_bytes, 'setter ok';
+	is $secp->_signature, $sig_bytes, 'getter ok';
+};
+
 done_testing;
 

@@ -43,6 +43,9 @@ subtest 'should import and export signature' => sub {
 };
 
 subtest 'should generate a public key' => sub {
+	$secp->_clear;
+	is $secp->_pubkey, undef, 'cleared pubkey ok';
+
 	$secp->_create_pubkey($sample_privkey);
 	is $secp->_pubkey, $sample_pubkey, 'pubkey ok';
 };
@@ -50,6 +53,9 @@ subtest 'should generate a public key' => sub {
 subtest 'should verify a signature' => sub {
 	my $sample_partial_digest = sha256($sample_preimage);
 	my $sample_digest = sha256($sample_partial_digest);
+
+	$secp->_pubkey($sample_pubkey);
+	$secp->_signature($sample_sig);
 
 	ok $secp->_verify($sample_digest), 'digest verification ok';
 	ok !$secp->_verify($sample_partial_digest), 'incorrect digest verification failed ok';

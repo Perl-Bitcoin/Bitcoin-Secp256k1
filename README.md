@@ -1,5 +1,5 @@
 # Bitcoin::Secp256k1
-A Perl module for blah blah blah
+Perl interface to libsecp256k1
 
 ## Code and documentation
 [Bitcoin::Secp256k1 on CPAN](https://metacpan.org/release/Bitcoin-Secp256k1)

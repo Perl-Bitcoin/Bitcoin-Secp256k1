@@ -28,17 +28,17 @@ subtest 'should die on high level methods without constructed object' => sub {
 
 subtest 'should die with reference private key' => sub {
 	my $ex = dies { $secp->create_public_key([]) };
-	like $ex, qr/requires a 32-byte secret key/, 'exception ok';
+	like $ex, qr/private key must be a bytestring of length 32/, 'exception ok';
 };
 
 subtest 'should die with invalid length private key' => sub {
 	my $ex;
 
 	$ex = dies { $secp->create_public_key("\x12" x 31) };
-	like $ex, qr/requires a 32-byte secret key/, 'too short ok';
+	like $ex, qr/private key must be a bytestring of length 32/, 'too short ok';
 
 	$ex = dies { $secp->create_public_key("\x12" x 33) };
-	like $ex, qr/requires a 32-byte secret key/, 'too long ok';
+	like $ex, qr/private key must be a bytestring of length 32/, 'too long ok';
 };
 
 subtest 'should die with invalid public key' => sub {
@@ -53,7 +53,7 @@ subtest 'should die with invalid signature' => sub {
 
 subtest 'should die with invalid digest' => sub {
 	my $ex = dies { $secp->verify_digest($t{pubkey}, $t{sig}, "\x12" x 35) };
-	like $ex, qr/requires a 32-byte message hash/, 'exception ok';
+	like $ex, qr/digest must be a bytestring of length 32/, 'exception ok';
 };
 
 subtest 'should die on invalid addition' => sub {

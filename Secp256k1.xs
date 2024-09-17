@@ -34,15 +34,6 @@ void secp256k1_perl_destroy(secp256k1_perl *perl_ctx)
 	free(perl_ctx);
 }
 
-void secp256k1_perl_randomize(secp256k1_perl *perl_ctx, unsigned char *randomize, size_t len)
-{
-	if (len != CURVE_SIZE || !secp256k1_context_randomize(perl_ctx->ctx, randomize)) {
-		secp256k1_perl_destroy(perl_ctx);
-		croak("Failed to randomize secp256k1 context");
-	}
-
-}
-
 void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey)
 {
 	if (perl_ctx->pubkey != NULL) {
@@ -61,13 +52,49 @@ void secp256k1_perl_replace_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_
 	perl_ctx->signature = new_signature;
 }
 
-secp256k1_perl* ctx_from_sv(SV* self)
+/* HELPERS */
+
+secp256k1_perl* ctx_from_sv(SV *self)
 {
 	if (!(sv_isobject(self) && sv_derived_from(self, "Bitcoin::Secp256k1"))) {
 		croak("calling Bitcoin::Secp256k1 methods is only valid in object context");
 	}
 
 	return (secp256k1_perl*) SvIV(SvRV(self));
+}
+
+unsigned char* bytestr_from_sv(SV *perlval, STRLEN *size)
+{
+	return (unsigned char*) SvPVbyte(perlval, *size);
+}
+
+unsigned char* size_bytestr_from_sv(SV *perlval, size_t wanted_size, char *argname)
+{
+	STRLEN size;
+	unsigned char *bytestr = bytestr_from_sv(perlval, &size);
+
+	if (size != wanted_size) {
+		char error_message[100];
+		sprintf(error_message, "%s must be a bytestring of length %zu", argname, wanted_size);
+
+		croak(error_message);
+	}
+
+	return bytestr;
+}
+
+void copy_bytestr(unsigned char *to, unsigned char *from, size_t size)
+{
+	for (int i = 0; i < size; ++i) {
+		to[i] = from[i];
+	}
+}
+
+void clean_secret(unsigned char *secret)
+{
+	for (int i = 0; i < CURVE_SIZE; ++i) {
+		secret[i] = 0;
+	}
 }
 
 /* XS code below */
@@ -108,10 +135,12 @@ new(classname)
 		secp256k1_perl* ctx = secp256k1_perl_create();
 
 		if (SvOK(tmp)) {
-			STRLEN len;
-			unsigned char *randomize = (unsigned char*) SvPVbyte(tmp, len);
+			unsigned char *randomize = size_bytestr_from_sv(tmp, CURVE_SIZE, "random data");
 
-			secp256k1_perl_randomize(ctx, randomize, len);
+			if (!secp256k1_context_randomize(ctx->ctx, randomize)) {
+				secp256k1_perl_destroy(ctx);
+				croak("Failed to randomize secp256k1 context");
+			}
 		}
 
 		/* Blessing the object */
@@ -143,7 +172,7 @@ _pubkey(self, ...)
 			}
 
 			size_t key_size;
-			unsigned char *key = (unsigned char*) SvPVbyte(new_pubkey, key_size);
+			unsigned char *key = bytestr_from_sv(new_pubkey, &key_size);
 
 			secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
 			int result = secp256k1_ec_pubkey_parse(
@@ -199,7 +228,7 @@ _signature(self, ...)
 			}
 
 			size_t signature_size;
-			unsigned char *signature = (unsigned char*) SvPVbyte(new_signature, signature_size);
+			unsigned char *signature = bytestr_from_sv(new_signature, &signature_size);
 
 			secp256k1_ecdsa_signature *result_signature = malloc(sizeof *result_signature);
 			int result = secp256k1_ecdsa_signature_parse_der(
@@ -242,12 +271,7 @@ _create_pubkey(self, privkey)
 		SV *privkey
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-
-		size_t seckey_size;
-		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
-		if (seckey_size != CURVE_SIZE) {
-			croak("creating a pubkey requires a 32-byte secret key");
-		}
+		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private key");
 
 		secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
 		int result = secp256k1_ec_pubkey_create(
@@ -296,12 +320,7 @@ _verify(self, message)
 			croak("verification requires both pubkey and signature");
 		}
 
-		size_t message_size;
-		unsigned char *message_str = (unsigned char*) SvPVbyte(message, message_size);
-
-		if (message_size != CURVE_SIZE) {
-			croak("verification requires a 32-byte message hash");
-		}
+		unsigned char *message_str = size_bytestr_from_sv(message, CURVE_SIZE, "digest");
 
 		int result = secp256k1_ecdsa_verify(
 			ctx->ctx,
@@ -323,17 +342,8 @@ _sign(self, privkey, message)
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 
-		size_t message_size;
-		unsigned char *message_str = (unsigned char*) SvPVbyte(message, message_size);
-		if (message_size != CURVE_SIZE) {
-			croak("signing requires a 32-byte message hash");
-		}
-
-		size_t seckey_size;
-		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
-		if (seckey_size != CURVE_SIZE) {
-			croak("signing requires a 32-byte secret key");
-		}
+		unsigned char *message_str = size_bytestr_from_sv(message, CURVE_SIZE, "digest");
+		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private key");
 
 		secp256k1_ecdsa_signature *result_signature = malloc(sizeof *result_signature);
 		int result = secp256k1_ecdsa_sign(
@@ -352,14 +362,15 @@ _sign(self, privkey, message)
 
 		secp256k1_perl_replace_signature(ctx, result_signature);
 
+# Checks whether a private key is valid
 SV*
 _verify_privkey(self, privkey)
 		SV* self
 		SV* privkey
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		size_t seckey_size;
-		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
+		STRLEN seckey_size;
+		unsigned char *seckey_str = bytestr_from_sv(privkey, &seckey_size);
 
 		int result = (
 			seckey_size == CURVE_SIZE
@@ -370,23 +381,17 @@ _verify_privkey(self, privkey)
 	OUTPUT:
 		RETVAL
 
+# Negates a private key
 SV*
 _privkey_negate(self, privkey)
 		SV *self
 		SV *privkey
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		size_t seckey_size;
-		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
-
-		if (seckey_size != CURVE_SIZE) {
-			croak("negating a privkey requires a 32-byte secret key");
-		}
+		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private key");
 
 		unsigned char new_seckey[CURVE_SIZE];
-		for (int i = 0; i < CURVE_SIZE; ++i) {
-			new_seckey[i] = seckey_str[i];
-		}
+		copy_bytestr(new_seckey, seckey_str, CURVE_SIZE);
 
 		int result = secp256k1_ec_seckey_negate(
 			ctx->ctx,
@@ -394,18 +399,16 @@ _privkey_negate(self, privkey)
 		);
 
 		if (!result) {
+			clean_secret(new_seckey);
 			croak("resulting negated privkey is not valid");
 		}
 
 		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
-
-		/* Clean up the secret, since we copied it to the stack */
-		for (int i = 0; i < CURVE_SIZE; ++i) {
-			new_seckey[i] = '\0';
-		}
+		clean_secret(new_seckey);
 	OUTPUT:
 		RETVAL
 
+# Negates a public key
 void
 _pubkey_negate(self)
 		SV *self
@@ -418,6 +421,7 @@ _pubkey_negate(self)
 			ctx->pubkey
 		);
 
+# Adds a tweak to private key
 SV*
 _privkey_add(self, privkey, tweak)
 		SV *self
@@ -425,20 +429,11 @@ _privkey_add(self, privkey, tweak)
 		SV *tweak
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		size_t seckey_size;
-		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
-
-		size_t tweak_size;
-		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
-
-		if (seckey_size != CURVE_SIZE || tweak_size != CURVE_SIZE) {
-			croak("adding a privkey requires 32-byte secret key and tweak");
-		}
+		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private key");
+		unsigned char *tweak_str = size_bytestr_from_sv(tweak, CURVE_SIZE, "tweak");
 
 		unsigned char new_seckey[CURVE_SIZE];
-		for (int i = 0; i < CURVE_SIZE; ++i) {
-			new_seckey[i] = seckey_str[i];
-		}
+		copy_bytestr(new_seckey, seckey_str, CURVE_SIZE);
 
 		int result = secp256k1_ec_seckey_tweak_add(
 			ctx->ctx,
@@ -447,31 +442,23 @@ _privkey_add(self, privkey, tweak)
 		);
 
 		if (!result) {
+			clean_secret(new_seckey);
 			croak("resulting added privkey is not valid");
 		}
 
 		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
-
-		/* Clean up the secret, since we copied it to the stack */
-		for (int i = 0; i < CURVE_SIZE; ++i) {
-			new_seckey[i] = '\0';
-		}
+		clean_secret(new_seckey);
 	OUTPUT:
 		RETVAL
 
+# Adds a tweak to public key
 void
 _pubkey_add(self, tweak)
 		SV *self
 		SV *tweak
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-
-		size_t tweak_size;
-		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
-
-		if (tweak_size != CURVE_SIZE) {
-			croak("adding a pubkey requires 32-byte tweak");
-		}
+		unsigned char *tweak_str = size_bytestr_from_sv(tweak, CURVE_SIZE, "tweak");
 
 		int result = secp256k1_ec_pubkey_tweak_add(
 			ctx->ctx,
@@ -483,6 +470,7 @@ _pubkey_add(self, tweak)
 			croak("resulting added pubkey is not valid");
 		}
 
+# Multiplies private key by a tweak
 SV*
 _privkey_mul(self, privkey, tweak)
 		SV *self
@@ -490,20 +478,11 @@ _privkey_mul(self, privkey, tweak)
 		SV *tweak
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		size_t seckey_size;
-		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
-
-		size_t tweak_size;
-		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
-
-		if (seckey_size != CURVE_SIZE || tweak_size != CURVE_SIZE) {
-			croak("multiplying a privkey requires 32-byte secret key and tweak");
-		}
+		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private_key");
+		unsigned char *tweak_str = size_bytestr_from_sv(tweak, CURVE_SIZE, "tweak");
 
 		unsigned char new_seckey[CURVE_SIZE];
-		for (int i = 0; i < CURVE_SIZE; ++i) {
-			new_seckey[i] = seckey_str[i];
-		}
+		copy_bytestr(new_seckey, seckey_str, CURVE_SIZE);
 
 		int result = secp256k1_ec_seckey_tweak_mul(
 			ctx->ctx,
@@ -512,31 +491,23 @@ _privkey_mul(self, privkey, tweak)
 		);
 
 		if (!result) {
+			clean_secret(new_seckey);
 			croak("multiplication arguments are not valid");
 		}
 
 		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
-
-		/* Clean up the secret, since we copied it to the stack */
-		for (int i = 0; i < CURVE_SIZE; ++i) {
-			new_seckey[i] = '\0';
-		}
+		clean_secret(new_seckey);
 	OUTPUT:
 		RETVAL
 
+# Multiplies public key by a tweak
 void
 _pubkey_mul(self, tweak)
 		SV *self
 		SV *tweak
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-
-		size_t tweak_size;
-		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
-
-		if (tweak_size != CURVE_SIZE) {
-			croak("multiplying a pubkey requires 32-byte tweak");
-		}
+		unsigned char *tweak_str = size_bytestr_from_sv(tweak, CURVE_SIZE, "tweak");
 
 		int result = secp256k1_ec_pubkey_tweak_mul(
 			ctx->ctx,
@@ -548,12 +519,14 @@ _pubkey_mul(self, tweak)
 			croak("multiplication arguments are not valid");
 		}
 
+# Destructor
 void
 DESTROY(self)
 		SV *self
 	CODE:
 		secp256k1_perl_destroy(ctx_from_sv(self));
 
+# Do a selftest on module load
 BOOT:
 	secp256k1_selftest();
 

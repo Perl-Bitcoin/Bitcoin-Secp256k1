@@ -16,14 +16,9 @@ typedef struct {
 void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey);
 void secp256k1_perl_replace_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_signature *new_signature);
 
-secp256k1_perl* secp256k1_perl_create(unsigned char *randomize, size_t len)
+secp256k1_perl* secp256k1_perl_create()
 {
 	secp256k1_context *secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-	if (len != CURVE_SIZE || !secp256k1_context_randomize(secp_ctx, randomize)) {
-		secp256k1_context_destroy(secp_ctx);
-		croak("Failed to randomize secp256k1 context");
-	}
-
 	secp256k1_perl *perl_ctx = malloc(sizeof *perl_ctx);
 	perl_ctx->ctx = secp_ctx;
 	perl_ctx->pubkey = NULL;
@@ -37,6 +32,15 @@ void secp256k1_perl_destroy(secp256k1_perl *perl_ctx)
 	secp256k1_perl_replace_signature(perl_ctx, NULL);
 	secp256k1_context_destroy(perl_ctx->ctx);
 	free(perl_ctx);
+}
+
+void secp256k1_perl_randomize(secp256k1_perl *perl_ctx, unsigned char *randomize, size_t len)
+{
+	if (len != CURVE_SIZE || !secp256k1_context_randomize(perl_ctx->ctx, randomize)) {
+		secp256k1_perl_destroy(perl_ctx);
+		croak("Failed to randomize secp256k1 context");
+	}
+
 }
 
 void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey)
@@ -86,25 +90,29 @@ new(classname)
 		PUSHs(tmp);
 		PUTBACK;
 
-		size_t count = call_pv("Bytes::Random::Secure::random_bytes", G_SCALAR);
+		size_t count = call_pv("Bitcoin::Secp256k1::_random_bytes", G_SCALAR);
 		SvREFCNT_dec(tmp);
 
 		SPAGAIN;
 
 		if (count != 1) {
-			croak("calling Bytes::Random::Secure::random_bytes went wrong in Bitcoin::Secp256k1::new");
+			croak("fetching randomness went wrong in Bitcoin::Secp256k1::new");
 		}
 
 		tmp = POPs;
 		PUTBACK;
 
-		STRLEN len;
-		unsigned char *randomize = (unsigned char*) SvPVbyte(tmp, len);
-
 		/* Randomness dump */
 		/* for (int i = 0; i < len; ++i) { warn("%d: %d", i, randomize[i]); } */
 
-		secp256k1_perl* ctx = secp256k1_perl_create(randomize, len);
+		secp256k1_perl* ctx = secp256k1_perl_create();
+
+		if (SvOK(tmp)) {
+			STRLEN len;
+			unsigned char *randomize = (unsigned char*) SvPVbyte(tmp, len);
+
+			secp256k1_perl_randomize(ctx, randomize, len);
+		}
 
 		/* Blessing the object */
 		SV *secp_sv = newSViv(0);

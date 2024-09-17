@@ -3,9 +3,34 @@ package Bitcoin::Secp256k1;
 use v5.10;
 use strict;
 use warnings;
-use Bytes::Random::Secure;
 use Digest::SHA qw(sha256);
 use Carp;
+
+# RANDOMNESS SOURCE
+# libsecp256k1 needs a source of randomness to randomize context, which
+# increases its security. Since it is not 100% required for the library to work
+# properly, we try a couple sources first, and may eventually give up with a
+# warning.
+
+use constant HAS_CRYPTX => eval { require Crypt::PRNG; 1; };
+use constant HAS_BYTES_RANDOM_SECURE => eval { require Bytes::Random::Secure; 1; };
+
+sub _random_bytes
+{
+	my ($count) = @_;
+
+	if (HAS_CRYPTX) {
+		return Crypt::PRNG::random_bytes($count);
+	}
+
+	if (HAS_BYTES_RANDOM_SECURE) {
+		return Bytes::Random::Secure::random_bytes($count);
+	}
+
+	carp
+		'Caution: no supported PRNG module is installed. For extra security, please install CryptX or Bytes::Random::Secure';
+	return undef;
+}
 
 # LOW LEVEL API
 # XS defines constructor, destructor and some general utility methods
@@ -97,9 +122,10 @@ Bitcoin::Secp256k1 - Perl interface to libsecp256k1
 
 =head1 DESCRIPTION
 
-This module implements XS routines that allow accessing common libsecp256k1
-operations using Perl code. It requires libsecp256k1 to be installed on the
-system, and will try to detect and install automatically using
+This module implements XS routines that allow accessing common elliptic curve
+operations on secp256k1 curve using Perl code. It requires
+L<libsecp256k1|https://github.com/bitcoin-core/secp256k1> to be installed on
+the system, and will try to detect and install it automatically using
 L<Alien::libsecp256k1>.
 
 =head1 INTERFACE
@@ -226,6 +252,13 @@ Notable exceptions are the constructor L</new> and the destructor, which are
 also part of the low-level API, yet public.
 
 =back
+
+The module also needs a cryptographically-secure source of pseudo-randomness to
+deliver the highest level of security. It will try to obtain it from L<CryptX>
+or L<Bytes::Random::Secure>. If none of these modules is installed, a warning
+will be issued every time a constructor is called. The library will continue to
+work as intended, but randomization is a security feature which protects against
+some types of attacks. Refer to libsecp256k1 documentation for details.
 
 =head1 SEE ALSO
 

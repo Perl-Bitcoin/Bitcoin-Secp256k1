@@ -118,7 +118,13 @@ Bitcoin::Secp256k1 - Perl interface to libsecp256k1
 
 	use Bitcoin::Secp256k1;
 
-	# do something
+	# first, create a context
+	my $secp256k1 = Bitcoin::Secp256k1->new;
+
+	# then, use it to perform ECC operations
+	my $public_key = $secp256k1->create_public_key($private_key);
+	my $signature = $secp256k1->sign_message($private_key, $message);
+	my $valid = $secp256k1->verify_message($public_key, $signature, $message);
 
 =head1 DESCRIPTION
 

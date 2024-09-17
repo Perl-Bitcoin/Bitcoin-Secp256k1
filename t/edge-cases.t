@@ -56,5 +56,16 @@ subtest 'should die with invalid digest' => sub {
 	like $ex, qr/requires a 32-byte message hash/, 'exception ok';
 };
 
+subtest 'should die on invalid addition' => sub {
+	my $negated = $secp->negate_private_key($t{privkey});
+	my $ex = dies { $secp->add_private_key($t{privkey}, $negated) };
+	like $ex, qr/resulting added privkey is not valid/, 'exception ok';
+};
+
+subtest 'should die on invalid multiplication' => sub {
+	my $ex = dies { $secp->multiply_public_key($t{pubkey}, "\xff" x 32) };
+	like $ex, qr/multiplication arguments are not valid/, 'exception ok';
+};
+
 done_testing;
 

@@ -12,7 +12,7 @@ plan skip_all => 'This test requires Test::MemoryGrowth module'
 Test::MemoryGrowth::no_growth {
 	my $secp = Bitcoin::Secp256k1->new;
 }
-calls => 100, 'construction/destruction of Bitcoin::Secp256k1 does not leak';
+calls => 1000, 'construction/destruction of Bitcoin::Secp256k1 does not leak';
 
 done_testing;
 

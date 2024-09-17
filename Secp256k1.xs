@@ -59,6 +59,10 @@ void secp256k1_perl_replace_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_
 
 secp256k1_perl* ctx_from_sv(SV* self)
 {
+	if (!(sv_isobject(self) && sv_derived_from(self, "Bitcoin::Secp256k1"))) {
+		croak("calling Bitcoin::Secp256k1 methods is only valid in object context");
+	}
+
 	return (secp256k1_perl*) SvIV(SvRV(self));
 }
 
@@ -88,7 +92,7 @@ new(classname)
 		SPAGAIN;
 
 		if (count != 1) {
-			croak("Calling Bytes::Random::Secure::random_bytes went wrong in Bitcoin::Secp256k1::new");
+			croak("calling Bytes::Random::Secure::random_bytes went wrong in Bitcoin::Secp256k1::new");
 		}
 
 		tmp = POPs;

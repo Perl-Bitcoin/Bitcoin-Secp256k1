@@ -389,9 +389,10 @@ introduces, most notably the Schnorr module.
 Documentation of libsecp256k1 recommends keeping secrets on the stack (not the
 heap) and erasing them manually after they are no longer used. This is
 impossible in Perl, as it gives programmer no control over memory allocation.
-This library does not ever clear the secret key memory by overwriting it with
-zeros. If you need this level of security, you should probably use libsecp256k1
-directly in C code.
+This library does not usually clear the secret key memory by overwriting it
+with zeros (unless it explicitly copied the secret to a new buffer). If you
+need this level of security, you should probably use libsecp256k1 directly in C
+code.
 
 =head1 SEE ALSO
 

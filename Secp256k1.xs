@@ -352,6 +352,24 @@ _sign(self, privkey, message)
 
 		secp256k1_perl_replace_signature(ctx, result_signature);
 
+SV*
+_verify_privkey(self, privkey)
+		SV* self
+		SV* privkey
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		size_t seckey_size;
+		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
+
+		int result = (
+			seckey_size == CURVE_SIZE
+			&& secp256k1_ec_seckey_verify(ctx->ctx, seckey_str)
+		);
+
+		RETVAL = result ? &PL_sv_yes : &PL_sv_no;
+	OUTPUT:
+		RETVAL
+
 void
 DESTROY(self)
 		SV *self

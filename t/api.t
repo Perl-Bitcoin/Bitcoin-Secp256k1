@@ -12,6 +12,12 @@ use Secp256k1Test;
 my $secp = Bitcoin::Secp256k1->new;
 my %t = Secp256k1Test->test_data;
 
+subtest 'should verify a private key' => sub {
+	ok $secp->verify_private_key("\x12" x 32), 'verification ok';
+	ok !$secp->verify_private_key("\xff" x 32), 'larger than curve order ok';
+	ok !$secp->verify_private_key("\xff" x 31), 'not 32 bytes ok';
+};
+
 subtest 'should derive a public key' => sub {
 	is $secp->create_public_key($t{privkey}), $t{pubkey}, 'pubkey derived ok';
 };

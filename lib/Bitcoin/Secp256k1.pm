@@ -44,6 +44,13 @@ XSLoader::load('Bitcoin::Secp256k1', $Bitcoin::Secp256k1::VERSION);
 # These methods are implemented in Perl and deliver more convenient API to
 # interact with. They are stable and public.
 
+sub verify_private_key
+{
+	my ($self, $private_key) = @_;
+
+	return $self->_verify_privkey($private_key);
+}
+
 sub create_public_key
 {
 	my ($self, $private_key) = @_;
@@ -150,6 +157,17 @@ from Perl.
 
 Object constructor. All methods in this package require this object to work
 properly. It accepts no arguments.
+
+=head3 verify_private_key
+
+	$valid = $secp256k1->verify_private_key($private_key)
+
+Checks whether bytestring C<$private_key> is a valid private key. Private key
+is valid if its length is exactly C<32> and it is below curve order (when
+interpreted as a big-endian integer).
+
+Some methods in this module may die if their private key is not valid, but a
+chance of picking an invalid 32-byte private key at random are extremely slim.
 
 =head3 create_public_key
 

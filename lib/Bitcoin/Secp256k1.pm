@@ -284,6 +284,12 @@ will be issued every time a constructor is called. The library will continue to
 work as intended, but randomization is a security feature which protects against
 some types of attacks. Refer to libsecp256k1 documentation for details.
 
+=head2 TODO
+
+This module currently covers most usage paths of the base libsecp256k1. In the
+future, new methods to also cover some of its optional modules may be
+introduces, most notably the Schnorr module.
+
 =head1 CAVEATS
 
 Documentation of libsecp256k1 recommends keeping secrets on the stack (not the

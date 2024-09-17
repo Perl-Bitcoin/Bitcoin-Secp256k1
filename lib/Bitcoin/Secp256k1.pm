@@ -266,6 +266,15 @@ will be issued every time a constructor is called. The library will continue to
 work as intended, but randomization is a security feature which protects against
 some types of attacks. Refer to libsecp256k1 documentation for details.
 
+=head1 CAVEATS
+
+Documentation of libsecp256k1 recommends keeping secrets on the stack (not the
+heap) and erasing them manually after they are no longer used. This is
+impossible in Perl, as it gives programmer no control over memory allocation.
+This library does not ever clear the secret key memory by overwriting it with
+zeros. If you need this level of security, you should probably use libsecp256k1
+directly in C code.
+
 =head1 SEE ALSO
 
 L<Alien::libsecp256k1>

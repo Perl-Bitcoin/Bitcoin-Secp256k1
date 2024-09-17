@@ -113,6 +113,24 @@ sub verify_digest
 	return $self->_verify($digest);
 }
 
+sub negate_public_key
+{
+	my ($self, $public_key) = @_;
+
+	$self->_pubkey($public_key);
+	$self->_pubkey_negate;
+
+	return $self->_pubkey;
+}
+
+sub negate_private_key
+{
+	my ($self, $private_key) = @_;
+
+	$private_key = $self->_privkey_negate($private_key);
+	return $private_key;
+}
+
 1;
 
 __END__
@@ -250,6 +268,18 @@ accept or reject malleable signatures explicitly.
 
 Same as L</verify_message>, but it does not perform double SHA256 on its input.
 Because of that, C<$message_digest> must be a bytestring of length C<32>.
+
+=head3 negate_private_key
+
+	$negated_private_key = $secp256k1->negated_private_key($private_key)
+
+Negates a private key and returns it.
+
+=head3 negate_public_key
+
+	$negated_public_key = $secp256k1->negate_public_key($public_key)
+
+Negates a public key and returns it.
 
 =head1 IMPLEMENTATION
 

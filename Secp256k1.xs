@@ -370,6 +370,48 @@ _verify_privkey(self, privkey)
 	OUTPUT:
 		RETVAL
 
+SV*
+_privkey_negate(self, privkey)
+		SV *self
+		SV *privkey
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		size_t seckey_size;
+		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
+
+		if (seckey_size != CURVE_SIZE) {
+			croak("negating a privkey requires a 32-byte secret key");
+		}
+
+		unsigned char new_seckey[CURVE_SIZE];
+		for (int i = 0; i < CURVE_SIZE; ++i) {
+			new_seckey[i] = seckey_str[i];
+		}
+
+		int result = secp256k1_ec_seckey_negate(ctx->ctx, new_seckey);
+
+		if (!result) {
+			croak("resulting negated privkey is not valid");
+		}
+
+		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
+
+		/* Clean up the secret, since we copied it to the stack */
+		for (int i = 0; i < CURVE_SIZE; ++i) {
+			new_seckey[i] = '\0';
+		}
+	OUTPUT:
+		RETVAL
+
+SV*
+_pubkey_negate(self)
+		SV *self
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+
+		/* NOTE: result is always 1 */
+		int result = secp256k1_ec_pubkey_negate(ctx->ctx, ctx->pubkey);
+
 void
 DESTROY(self)
 		SV *self

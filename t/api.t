@@ -54,5 +54,13 @@ subtest 'should sign and verify a digest' => sub {
 	}, 1, 'unnormalized signature warning ok';
 };
 
+subtest 'should negate' => sub {
+	my $negated_pubkey = pack 'H*', '035476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee6357';
+	my $negated_privkey = pack 'H*', '9e63ccafda380bfed1aa93d5a74daf9089f68bcb5b9ab6dd1cbb61009daf4288';
+
+	is $secp->negate_public_key($t{pubkey}), $negated_pubkey, 'negated pubkey ok';
+	is $secp->negate_private_key($t{privkey}), $negated_privkey, 'negated privkey ok';
+};
+
 done_testing;
 

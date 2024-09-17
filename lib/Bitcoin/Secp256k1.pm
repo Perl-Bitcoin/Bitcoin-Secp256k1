@@ -127,8 +127,24 @@ sub negate_private_key
 {
 	my ($self, $private_key) = @_;
 
-	$private_key = $self->_privkey_negate($private_key);
-	return $private_key;
+	return $self->_privkey_negate($private_key);
+}
+
+sub add_public_key
+{
+	my ($self, $public_key, $tweak) = @_;
+
+	$self->_pubkey($public_key);
+	$self->_pubkey_add($tweak);
+
+	return $self->_pubkey;
+}
+
+sub add_private_key
+{
+	my ($self, $private_key, $tweak) = @_;
+
+	return $self->_privkey_add($private_key, $tweak);
 }
 
 1;
@@ -280,6 +296,25 @@ Negates a private key and returns it.
 	$negated_public_key = $secp256k1->negate_public_key($public_key)
 
 Negates a public key and returns it.
+
+=head3 add_private_key
+
+	$tweaked = $secp256k1->add_private_key($private_key, $tweak)
+
+Add a C<$tweak> (bytestring of length C<32>) to C<$private_key> (bytestring of
+length C<32>). The result is a bytestring containing tweaked private key.
+
+If the arguments or the resulting key are not valid, an exception will be thrown.
+
+=head3 add_public_key
+
+	$tweaked = $secp256k1->add_public_key($public_key, $tweak)
+
+Add a C<$tweak> (bytestring of length C<32>) to C<$public_key> (bytestring with
+compressed or uncompressed public key). The result is a bytestring containing
+tweaked public key in compressed form.
+
+If the arguments or the resulting key are not valid, an exception will be thrown.
 
 =head1 IMPLEMENTATION
 

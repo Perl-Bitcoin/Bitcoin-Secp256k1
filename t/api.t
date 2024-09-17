@@ -62,5 +62,14 @@ subtest 'should negate' => sub {
 	is $secp->negate_private_key($t{privkey}), $negated_privkey, 'negated privkey ok';
 };
 
+subtest 'should add' => sub {
+	my $added_pubkey = pack 'H*', '0260213f6d967636c54d8845c23098e0f63d906b7903d23692efa155a155eda169';
+	my $added_privkey = pack 'H*', '67a239562bcdfa07345b72305eb8567436be572159b3ef64a91d0392388d04bf';
+	my $tweak = "\x06" x 32;
+
+	is $secp->add_public_key($t{pubkey}, $tweak), $added_pubkey, 'added pubkey ok';
+	is $secp->add_private_key($t{privkey}, $tweak), $added_privkey, 'added privkey ok';
+};
+
 done_testing;
 

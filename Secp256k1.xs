@@ -388,7 +388,10 @@ _privkey_negate(self, privkey)
 			new_seckey[i] = seckey_str[i];
 		}
 
-		int result = secp256k1_ec_seckey_negate(ctx->ctx, new_seckey);
+		int result = secp256k1_ec_seckey_negate(
+			ctx->ctx,
+			new_seckey
+		);
 
 		if (!result) {
 			croak("resulting negated privkey is not valid");
@@ -403,14 +406,82 @@ _privkey_negate(self, privkey)
 	OUTPUT:
 		RETVAL
 
-SV*
+void
 _pubkey_negate(self)
 		SV *self
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 
 		/* NOTE: result is always 1 */
-		int result = secp256k1_ec_pubkey_negate(ctx->ctx, ctx->pubkey);
+		int result = secp256k1_ec_pubkey_negate(
+			ctx->ctx,
+			ctx->pubkey
+		);
+
+SV*
+_privkey_add(self, privkey, tweak)
+		SV *self
+		SV *privkey
+		SV *tweak
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		size_t seckey_size;
+		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
+
+		size_t tweak_size;
+		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
+
+		if (seckey_size != CURVE_SIZE || tweak_size != CURVE_SIZE) {
+			croak("adding a privkey requires 32-byte secret key and tweak");
+		}
+
+		unsigned char new_seckey[CURVE_SIZE];
+		for (int i = 0; i < CURVE_SIZE; ++i) {
+			new_seckey[i] = seckey_str[i];
+		}
+
+		int result = secp256k1_ec_seckey_tweak_add(
+			ctx->ctx,
+			new_seckey,
+			tweak_str
+		);
+
+		if (!result) {
+			croak("resulting added privkey is not valid");
+		}
+
+		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
+
+		/* Clean up the secret, since we copied it to the stack */
+		for (int i = 0; i < CURVE_SIZE; ++i) {
+			new_seckey[i] = '\0';
+		}
+	OUTPUT:
+		RETVAL
+
+void
+_pubkey_add(self, tweak)
+		SV *self
+		SV *tweak
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+
+		size_t tweak_size;
+		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
+
+		if (tweak_size != CURVE_SIZE) {
+			croak("adding a pubkey requires 32-byte tweak");
+		}
+
+		int result = secp256k1_ec_pubkey_tweak_add(
+			ctx->ctx,
+			ctx->pubkey,
+			tweak_str
+		);
+
+		if (!result) {
+			croak("resulting added pubkey is not valid");
+		}
 
 void
 DESTROY(self)

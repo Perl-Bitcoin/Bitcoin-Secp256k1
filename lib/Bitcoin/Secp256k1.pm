@@ -147,6 +147,23 @@ sub add_private_key
 	return $self->_privkey_add($private_key, $tweak);
 }
 
+sub multiply_public_key
+{
+	my ($self, $public_key, $tweak) = @_;
+
+	$self->_pubkey($public_key);
+	$self->_pubkey_mul($tweak);
+
+	return $self->_pubkey;
+}
+
+sub multiply_private_key
+{
+	my ($self, $private_key, $tweak) = @_;
+
+	return $self->_privkey_mul($private_key, $tweak);
+}
+
 1;
 
 __END__
@@ -315,6 +332,18 @@ compressed or uncompressed public key). The result is a bytestring containing
 tweaked public key in compressed form.
 
 If the arguments or the resulting key are not valid, an exception will be thrown.
+
+=head3 multiply_private_key
+
+	$tweaked = $secp256k1->multiply_private_key($private_key, $tweak)
+
+Same as L</add_private_key>, but performs multiplication instead of addition.
+
+=head3 multiply_public_key
+
+	$tweaked = $secp256k1->multiply_public_key($public_key, $tweak)
+
+Same as L</add_public_key>, but performs multiplication instead of addition.
 
 =head1 IMPLEMENTATION
 

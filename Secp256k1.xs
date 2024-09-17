@@ -483,6 +483,71 @@ _pubkey_add(self, tweak)
 			croak("resulting added pubkey is not valid");
 		}
 
+SV*
+_privkey_mul(self, privkey, tweak)
+		SV *self
+		SV *privkey
+		SV *tweak
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		size_t seckey_size;
+		unsigned char *seckey_str = (unsigned char*) SvPVbyte(privkey, seckey_size);
+
+		size_t tweak_size;
+		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
+
+		if (seckey_size != CURVE_SIZE || tweak_size != CURVE_SIZE) {
+			croak("multiplying a privkey requires 32-byte secret key and tweak");
+		}
+
+		unsigned char new_seckey[CURVE_SIZE];
+		for (int i = 0; i < CURVE_SIZE; ++i) {
+			new_seckey[i] = seckey_str[i];
+		}
+
+		int result = secp256k1_ec_seckey_tweak_mul(
+			ctx->ctx,
+			new_seckey,
+			tweak_str
+		);
+
+		if (!result) {
+			croak("multiplication arguments are not valid");
+		}
+
+		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
+
+		/* Clean up the secret, since we copied it to the stack */
+		for (int i = 0; i < CURVE_SIZE; ++i) {
+			new_seckey[i] = '\0';
+		}
+	OUTPUT:
+		RETVAL
+
+void
+_pubkey_mul(self, tweak)
+		SV *self
+		SV *tweak
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+
+		size_t tweak_size;
+		unsigned char *tweak_str = (unsigned char*) SvPVbyte(tweak, tweak_size);
+
+		if (tweak_size != CURVE_SIZE) {
+			croak("multiplying a pubkey requires 32-byte tweak");
+		}
+
+		int result = secp256k1_ec_pubkey_tweak_mul(
+			ctx->ctx,
+			ctx->pubkey,
+			tweak_str
+		);
+
+		if (!result) {
+			croak("multiplication arguments are not valid");
+		}
+
 void
 DESTROY(self)
 		SV *self

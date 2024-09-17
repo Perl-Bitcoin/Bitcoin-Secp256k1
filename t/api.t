@@ -71,5 +71,14 @@ subtest 'should add' => sub {
 	is $secp->add_private_key($t{privkey}, $tweak), $added_privkey, 'added privkey ok';
 };
 
+subtest 'should multiply' => sub {
+	my $multiplied_pubkey = pack 'H*', '0311ab47c9252066f0ca5946d70c3aaac1486d65969b90cd57207476963c9f9af3';
+	my $multiplied_privkey = pack 'H*', '2d40a33515eb26b0fbce29e0e9645e15d6ff4892a17e59ab31b66b496780a683';
+	my $tweak = "\x06" x 32;
+
+	is $secp->multiply_public_key($t{pubkey}, $tweak), $multiplied_pubkey, 'multiplied pubkey ok';
+	is $secp->multiply_private_key($t{privkey}, $tweak), $multiplied_privkey, 'multiplied privkey ok';
+};
+
 done_testing;
 

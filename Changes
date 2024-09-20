@@ -1,6 +1,8 @@
 Revision history for Bitcoin-Secp256k1
 
 {{$NEXT}}
+
+0.002 - 2024-09-20
 	- Module should now be buildable on threaded perls
 	- Module should now be buildable on all major OSes
 

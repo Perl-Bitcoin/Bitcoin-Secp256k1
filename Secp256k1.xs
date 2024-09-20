@@ -1,8 +1,8 @@
-#define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
 
+#define SECP256K1_STATIC
 #include <secp256k1.h>
 
 #define CURVE_SIZE 32

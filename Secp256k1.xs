@@ -85,14 +85,16 @@ unsigned char* size_bytestr_from_sv(SV *perlval, size_t wanted_size, char *argna
 
 void copy_bytestr(unsigned char *to, unsigned char *from, size_t size)
 {
-	for (int i = 0; i < size; ++i) {
+	int i;
+	for (i = 0; i < size; ++i) {
 		to[i] = from[i];
 	}
 }
 
 void clean_secret(unsigned char *secret)
 {
-	for (int i = 0; i < CURVE_SIZE; ++i) {
+	int i;
+	for (i = 0; i < CURVE_SIZE; ++i) {
 		secret[i] = 0;
 	}
 }

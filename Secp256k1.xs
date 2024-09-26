@@ -83,6 +83,31 @@ unsigned char* size_bytestr_from_sv(SV *perlval, size_t wanted_size, char *argna
 	return bytestr;
 }
 
+secp256k1_pubkey* pubkey_from_sv(secp256k1_perl *ctx, SV *data)
+{
+	if (!SvOK(data) || SvROK(data)) {
+		croak("public key must be defined and not a reference");
+	}
+
+	size_t key_size;
+	unsigned char *key = bytestr_from_sv(data, &key_size);
+
+	secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
+	int result = secp256k1_ec_pubkey_parse(
+		ctx->ctx,
+		result_pubkey,
+		key,
+		key_size
+	);
+
+	if (!result) {
+		free(result_pubkey);
+		croak("the input does not appear to be a valid public key");
+	}
+
+	return result_pubkey;
+}
+
 void copy_bytestr(unsigned char *to, unsigned char *from, size_t size)
 {
 	int i;
@@ -168,28 +193,9 @@ _pubkey(self, ...)
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 		if (items > 1 && SvOK(ST(1))) {
-			SV *new_pubkey = ST(1);
-			if (SvROK(new_pubkey)) {
-				croak("public key must not be a reference");
-			}
-
-			size_t key_size;
-			unsigned char *key = bytestr_from_sv(new_pubkey, &key_size);
-
-			secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
-			int result = secp256k1_ec_pubkey_parse(
-				ctx->ctx,
-				result_pubkey,
-				key,
-				key_size
-			);
-
-			if (!result) {
-				free(result_pubkey);
-				croak("the input does not appear to be a valid public key");
-			}
-
-			secp256k1_perl_replace_pubkey(ctx, result_pubkey);
+			SV *pubkey_data = ST(1);
+			secp256k1_pubkey *new_pubkey = pubkey_from_sv(ctx, pubkey_data);
+			secp256k1_perl_replace_pubkey(ctx, new_pubkey);
 		}
 
 		unsigned int compression = SECP256K1_EC_COMPRESSED;
@@ -520,6 +526,46 @@ _pubkey_mul(self, tweak)
 		if (!result) {
 			croak("multiplication arguments are not valid");
 		}
+
+# Combines public keys together
+void
+_pubkey_combine(self, ...)
+		SV *self
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+		int all_keys = items - 1;
+		if (all_keys == 0) {
+			croak("need at least one public key to combine");
+		}
+
+		secp256k1_pubkey **keys = malloc(sizeof(keys) * all_keys);
+		int i;
+
+		for (i = 0; i < all_keys; ++i) {
+			secp256k1_pubkey *new_key = pubkey_from_sv(ctx, ST(i + 1));
+			keys[i] = new_key;
+		}
+
+		secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
+		int result = secp256k1_ec_pubkey_combine(
+			ctx->ctx,
+			result_pubkey,
+			keys,
+			all_keys
+		);
+
+		for (i = 0; i < all_keys; ++i) {
+			free(keys[i]);
+		}
+		free(keys);
+
+		if (!result) {
+			free(result_pubkey);
+			croak("resulting sum of pubkeys is not valid");
+		}
+
+		secp256k1_perl_replace_pubkey(ctx, result_pubkey);
+
 
 # Destructor
 void

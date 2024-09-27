@@ -168,7 +168,13 @@ sub combine_public_keys
 {
 	my ($self, @public_keys) = @_;
 
-	$self->_pubkey_combine(@public_keys);
+	$self->_clear;
+	foreach my $pub (@public_keys) {
+		$self->_pubkey($pub);
+		$self->_push_pubkey;
+	}
+
+	$self->_pubkey_combine;
 
 	return $self->_pubkey;
 }

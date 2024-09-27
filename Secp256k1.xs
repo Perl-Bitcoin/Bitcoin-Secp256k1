@@ -8,9 +8,11 @@
 #define CURVE_SIZE 32
 
 typedef struct {
-	secp256k1_context* ctx;
-	secp256k1_pubkey* pubkey;
-	secp256k1_ecdsa_signature* signature;
+	secp256k1_context *ctx;
+	secp256k1_pubkey *pubkey;
+	secp256k1_pubkey **pubkeys;
+	unsigned int pubkeys_count;
+	secp256k1_ecdsa_signature *signature;
 } secp256k1_perl;
 
 void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey);
@@ -23,13 +25,31 @@ secp256k1_perl* secp256k1_perl_create()
 	perl_ctx->ctx = secp_ctx;
 	perl_ctx->pubkey = NULL;
 	perl_ctx->signature = NULL;
+	perl_ctx->pubkeys = NULL;
+	perl_ctx->pubkeys_count = 0;
 	return perl_ctx;
+}
+
+void secp256k1_perl_clear(secp256k1_perl *perl_ctx)
+{
+	secp256k1_perl_replace_pubkey(perl_ctx, NULL);
+	secp256k1_perl_replace_signature(perl_ctx, NULL);
+
+	if (perl_ctx->pubkeys_count > 0) {
+		int i;
+		for (i = 0; i < perl_ctx->pubkeys_count; ++i) {
+			free(perl_ctx->pubkeys[i]);
+		}
+
+		free(perl_ctx->pubkeys);
+		perl_ctx->pubkeys_count = 0;
+		perl_ctx->pubkeys = NULL;
+	}
 }
 
 void secp256k1_perl_destroy(secp256k1_perl *perl_ctx)
 {
-	secp256k1_perl_replace_pubkey(perl_ctx, NULL);
-	secp256k1_perl_replace_signature(perl_ctx, NULL);
+	secp256k1_perl_clear(perl_ctx);
 	secp256k1_context_destroy(perl_ctx->ctx);
 	free(perl_ctx);
 }
@@ -183,8 +203,8 @@ _clear(self)
 		SV *self
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		secp256k1_perl_replace_pubkey(ctx, NULL);
-		secp256k1_perl_replace_signature(ctx, NULL);
+		secp256k1_perl_clear(ctx);
+
 
 # Getter / setter for the public key
 SV*
@@ -271,6 +291,22 @@ _signature(self, ...)
 		}
 	OUTPUT:
 		RETVAL
+
+void
+_push_pubkey(self)
+		SV *self
+	CODE:
+		secp256k1_perl *ctx = ctx_from_sv(self);
+
+		if (ctx->pubkeys_count > 0) {
+			ctx->pubkeys = realloc(ctx->pubkeys, sizeof *ctx->pubkeys * (ctx->pubkeys_count + 1));
+		}
+		else {
+			ctx->pubkeys = malloc(sizeof *ctx->pubkeys);
+		}
+
+		ctx->pubkeys[ctx->pubkeys_count++] = ctx->pubkey;
+		ctx->pubkey = NULL;
 
 # Creates a public key from a private key
 void
@@ -529,35 +565,18 @@ _pubkey_mul(self, tweak)
 
 # Combines public keys together
 void
-_pubkey_combine(self, ...)
+_pubkey_combine(self)
 		SV *self
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		int all_keys = items - 1;
-		if (all_keys == 0) {
-			croak("need at least one public key to combine");
-		}
-
-		secp256k1_pubkey **keys = malloc(sizeof(keys) * all_keys);
-		int i;
-
-		for (i = 0; i < all_keys; ++i) {
-			secp256k1_pubkey *new_key = pubkey_from_sv(ctx, ST(i + 1));
-			keys[i] = new_key;
-		}
 
 		secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
 		int result = secp256k1_ec_pubkey_combine(
 			ctx->ctx,
 			result_pubkey,
-			keys,
-			all_keys
+			ctx->pubkeys,
+			ctx->pubkeys_count
 		);
-
-		for (i = 0; i < all_keys; ++i) {
-			free(keys[i]);
-		}
-		free(keys);
 
 		if (!result) {
 			free(result_pubkey);

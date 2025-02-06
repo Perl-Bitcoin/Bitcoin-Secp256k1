@@ -1,6 +1,8 @@
 Revision history for Bitcoin-Secp256k1
 
 {{$NEXT}}
+
+0.004 - 2025-02-06
 	[New interface]
 	- Added methods sign_message_schnorr, sign_digest_schnorr
 	- Added methods verify_message_schnorr, verify_digest_schnorr

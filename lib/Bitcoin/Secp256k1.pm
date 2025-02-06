@@ -32,6 +32,13 @@ sub _random_bytes
 	return undef;
 }
 
+our $FORCED_SCHNORR_AUX_RAND;
+
+sub _schnorr_aux_random
+{
+	return $FORCED_SCHNORR_AUX_RAND // _random_bytes(32);
+}
+
 # LOW LEVEL API
 # XS defines constructor, destructor and some general utility methods
 # interacting directly with libsecp256k1. All of these methods are private and
@@ -84,6 +91,13 @@ sub sign_message
 	return $self->sign_digest($private_key, sha256(sha256($message)));
 }
 
+sub sign_message_schnorr
+{
+	my ($self, $private_key, $message) = @_;
+
+	return $self->sign_digest_schnorr($private_key, sha256($message));
+}
+
 sub sign_digest
 {
 	my ($self, $private_key, $digest) = @_;
@@ -92,11 +106,26 @@ sub sign_digest
 	return $self->_signature;
 }
 
+sub sign_digest_schnorr
+{
+	my ($self, $private_key, $digest) = @_;
+
+	$self->_sign_schnorr($private_key, $digest);
+	return $self->_signature_schnorr;
+}
+
 sub verify_message
 {
 	my ($self, $public_key, $signature, $message) = @_;
 
 	return $self->verify_digest($public_key, $signature, sha256(sha256($message)));
+}
+
+sub verify_message_schnorr
+{
+	my ($self, $public_key, $signature, $message) = @_;
+
+	return $self->verify_digest_schnorr($public_key, $signature, sha256($message));
 }
 
 sub verify_digest
@@ -111,6 +140,16 @@ sub verify_digest
 	}
 
 	return $self->_verify($digest);
+}
+
+sub verify_digest_schnorr
+{
+	my ($self, $public_key, $signature, $digest) = @_;
+
+	$self->_xonly_pubkey($public_key);
+	$self->_signature_schnorr($signature);
+
+	return $self->_verify_schnorr($digest);
 }
 
 sub negate_public_key
@@ -128,6 +167,16 @@ sub negate_private_key
 	my ($self, $private_key) = @_;
 
 	return $self->_privkey_negate($private_key);
+}
+
+sub xonly_public_key
+{
+	my ($self, $public_key) = @_;
+
+	$self->_pubkey($public_key);
+	$self->_convert_pubkey_xonly;
+
+	return $self->_xonly_pubkey;
 }
 
 sub add_public_key

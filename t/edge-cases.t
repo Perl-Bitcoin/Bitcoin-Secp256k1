@@ -46,6 +46,11 @@ subtest 'should die with invalid public key' => sub {
 	like $ex, qr/the input does not appear to be a valid public key/, 'exception ok';
 };
 
+subtest 'should die with invalid xonly public key' => sub {
+	my $ex = dies { $secp->verify_digest_schnorr("\x12" x 33, $t{sig_schnorr}, "\x12" x 32) };
+	like $ex, qr/xonly pubkey must be a bytestring of length 32/, 'exception ok';
+};
+
 subtest 'should die with invalid signature' => sub {
 	my $ex = dies { $secp->verify_digest($t{pubkey}, "\x12" x 65, "\x12" x 32) };
 	like $ex, qr/the input does not appear to be a valid signature/, 'exception ok';

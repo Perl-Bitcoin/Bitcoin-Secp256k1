@@ -619,12 +619,12 @@ _sign_schnorr(self, privkey, message)
 			result_signature,
 			message_str,
 			&keypair,
-			size_bytestr_from_sv(tmp, CURVE_SIZE, "auxiliary randomness")
+			SvOK(tmp) ? size_bytestr_from_sv(tmp, CURVE_SIZE, "auxiliary randomness") : NULL
 		);
 
 		if (!result) {
 			free(result_signature);
-			croak("signing failed (nonce generation problem?)");
+			croak("Schnorr signing failed");
 		}
 
 		secp256k1_perl_replace_schnorr_signature(ctx, result_signature);

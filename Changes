@@ -2,6 +2,9 @@ Revision history for Bitcoin-Secp256k1
 
 {{$NEXT}}
 
+0.006 - 2025-03-09
+	- Fixed compilation error on Fedora and Rocky (gh#2)
+
 0.005 - 2025-03-02
 	- Fixed compilation error on Fedora (gh#1)
 

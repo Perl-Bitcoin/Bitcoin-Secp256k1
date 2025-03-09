@@ -8,6 +8,51 @@ on:
     - cron: '0 3 * * 0'
 
 jobs:
+  test-rocky:
+    runs-on: ubuntu-latest
+    container:
+      image: rockylinux/rockylinux:9
+    name: OS Rocky9
+
+    steps:
+    - name: Set up necessary packages
+      run: |
+        dnf install perl cpanminus git -y
+
+    - name: Show Perl Version
+      run: |
+        perl -v
+        cpanm -v
+
+    - uses: actions/checkout@v3
+
+    # this is to fix GIT not liking owner of the checkout dir
+    - name: Set ownership
+      run: |
+        chown -R $(id -u):$(id -g) $PWD
+
+    - name: Install Dist::Zilla
+      run: |
+        cpanm --notest Dist::Zilla
+
+    - name: Install Modules
+      run: |
+        rm /github/home/.cpanm/work/*/build.log
+        dzil authordeps --missing | cpanm --notest
+        dzil listdeps --develop --missing | cpanm --notest
+
+    - name: Show Errors
+      if:  ${{ failure() }}
+      run: |
+         cat /github/home/.cpanm/work/*/build.log
+
+    - name: Run tests
+      env:
+        AUTHOR_TESTING: 1
+        RELEASE_TESTING: 1
+      run: |
+        dzil test
+
   test:
     strategy:
       fail-fast: false

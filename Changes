@@ -1,6 +1,8 @@
 Revision history for Bitcoin-Secp256k1
 
 {{$NEXT}}
+
+0.008 - 2025-03-16
 	- Added method verify_public_key
 
 0.007 - 2025-03-11

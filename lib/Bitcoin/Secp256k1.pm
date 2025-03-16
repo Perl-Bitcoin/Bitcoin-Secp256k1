@@ -299,8 +299,8 @@ Checks whether bytestring C<$private_key> is a valid private key. Private key
 is valid if its length is exactly C<32> and it is below curve order (when
 interpreted as a big-endian integer).
 
-Some methods in this module may die if their private key is not valid, but a
-chance of picking an invalid 32-byte private key at random are extremely slim.
+Some methods in this module may die if their private key is not valid, but
+chances of picking an invalid 32-byte private key at random are extremely slim.
 
 =head3 verify_public_key
 

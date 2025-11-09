@@ -147,10 +147,7 @@ sub verify_digest
 
 	$self->_pubkey($public_key);
 	$self->_signature($signature);
-
-	if ($self->_normalize) {
-		carp 'Caution: signature to verify is not normalized';
-	}
+	$self->_normalize;
 
 	return $self->_verify($digest);
 }
@@ -326,10 +323,10 @@ Performs signature normalization of C<$signature>, which is in DER encoding (a
 bytestring). Returns the normalized signature. Will return the same signature
 if it was already in a normalized form.
 
-Signature normalization is important because of Bitcoin protocol rules.
-Normally, Bitcoin will reject transactions with malleable signatures. This
-module will only emit a warning if you try to verify a signature that is not
-normalized.
+Signature normalization is important because of Bitcoin standard rules.
+Normally, Bitcoin nodes will filter out transactions with malleable signatures.
+Since this is only a standardness rule, this module will let unnormalized
+signatures thorough.
 
 This method lets you both detect whether the signature was malleable and fix it
 to avoid a warning if needed.
@@ -404,9 +401,10 @@ Returns true if verification is successful.
 C<$message> is first hashed with double SHA256 (known an HASH256 in Bitcoin)
 before passing it to verification algorithm (which expects length C<32> bytestrings).
 
-Raises a warning if C<$siganture> is not normalized. It is recommended to
-perform signature normalization using L</normalize_signature> first and either
-accept or reject malleable signatures explicitly.
+Unlike underlying libsecp256k1 function, this method accepts malleable
+signatures. It is recommended to perform signature normalization using
+L</normalize_signature> first and reject malleable signatures explicitly if
+that behavior is not desirable.
 
 =head3 verify_message_schnorr
 

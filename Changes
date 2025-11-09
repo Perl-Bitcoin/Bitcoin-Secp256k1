@@ -1,6 +1,8 @@
 Revision history for Bitcoin-Secp256k1
 
 {{$NEXT}}
+
+0.009 - 2025-11-09
 	- Removed a warning when verifying unnormalized signatures
 
 0.008 - 2025-03-16

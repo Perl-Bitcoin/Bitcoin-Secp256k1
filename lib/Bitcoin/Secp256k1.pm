@@ -415,7 +415,11 @@ length) against C<$xonly_public_key> (bytestring). Returns true is verification
 is successful.
 
 C<$message> is first hashed with SHA256 before passing it to verification
-algorithm.
+algorithm to ensure digest length of 32 bytes. B<This is probably not correct
+for most use cases>, as schnorr message verification uses tagged hashes with
+customizable tags (implemented in L<Bitcoin::Crypto>, not in
+Bitcoin::Secp256k1). Use L</verify_digest_schnorr> with more specific digest
+algorithm instead.
 
 =head3 verify_digest
 

@@ -121,12 +121,10 @@ subtest 'should sign and verify a message (recoverable)' => sub {
 	my $rec_sig = $secp->sign_message_recoverable($t{privkey}, $t{preimage});
 	ok defined($rec_sig), 'recoverable message signed ok';
 
-	# Test serialize compact
-	my $result = $secp->serialize_compact_recoverable($rec_sig);
-	ok defined($result->{signature}), 'compact signature extracted ok';
-	ok defined($result->{recovery_id}), 'recovery id extracted ok';
-	is length($result->{signature}), 64, 'compact signature length ok';
-	ok $result->{recovery_id} >= 0 && $result->{recovery_id} <= 3, 'recovery id range ok';
+	ok defined($rec_sig->{signature}), 'compact signature extracted ok';
+	ok defined($rec_sig->{recovery_id}), 'recovery id extracted ok';
+	is length($rec_sig->{signature}), 64, 'compact signature length ok';
+	ok $rec_sig->{recovery_id} >= 0 && $rec_sig->{recovery_id} <= 3, 'recovery id range ok';
 
 	# Test recovery
 	my $recovered_pubkey = $secp->recover_public_key_message($rec_sig, $t{preimage});
@@ -160,8 +158,9 @@ subtest 'should sign and verify a digest (recoverable)' => sub {
 		'wrong digest verification fails ok';
 };
 
+# https://ethereum.github.io/yellowpaper/paper.pdf
+# Appendix F. Signing Transactions
 subtest 'ethereum yellowpaper specification' => sub {
-
 	my @test_cases = (
 		{
 			name => 'pk1 recoverable case',
@@ -178,15 +177,9 @@ subtest 'ethereum yellowpaper specification' => sub {
 	for my $case (@test_cases) {
 		subtest $case->{name} => sub {
 			my $rec_sig = $secp->sign_digest_recoverable($case->{privkey}, $case->{message});
-			my $compact = $secp->serialize_compact_recoverable($rec_sig);
 
-			# Extract components as per yellowpaper
-			my $r = substr($compact->{signature}, 0, 32);
-			my $s = substr($compact->{signature}, 32, 32);
-			my $v = $compact->{recovery_id};
-
-			# Yellowpaper constraints
-			# v ∈ {0, 1}
+			# Yellowpaper constraint: v ∈ {0, 1}
+			my $v = $rec_sig->{recovery_id};
 			ok $v >= 0 && $v <= 1, 'v in valid range [0,1]';
 
 			# Test recovery

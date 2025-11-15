@@ -20,14 +20,15 @@ typedef struct {
 	unsigned int pubkeys_count;
 	secp256k1_ecdsa_signature *signature;
 	unsigned char *schnorr_signature;
-    secp256k1_ecdsa_recoverable_signature *recoverable_signature;
+	unsigned char *recoverable_signature;
+	int recoverable_signature_recovery_id;
 } secp256k1_perl;
 
 void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey);
 void secp256k1_perl_replace_xonly_pubkey(secp256k1_perl *perl_ctx, secp256k1_xonly_pubkey *new_pubkey);
 void secp256k1_perl_replace_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_signature *new_signature);
 void secp256k1_perl_replace_schnorr_signature(secp256k1_perl *perl_ctx, unsigned char *new_signature);
-void secp256k1_perl_replace_recoverable_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_recoverable_signature *new_signature);
+void secp256k1_perl_replace_recoverable_signature(secp256k1_perl *perl_ctx, unsigned char *new_signature, int recovery_id);
 
 secp256k1_perl* secp256k1_perl_create()
 {
@@ -38,7 +39,8 @@ secp256k1_perl* secp256k1_perl_create()
 	perl_ctx->xonly_pubkey = NULL;
 	perl_ctx->signature = NULL;
 	perl_ctx->schnorr_signature = NULL;
-    perl_ctx->recoverable_signature = NULL;
+	perl_ctx->recoverable_signature = NULL;
+	perl_ctx->recoverable_signature_recovery_id = 0;
 	perl_ctx->pubkeys = NULL;
 	perl_ctx->pubkeys_count = 0;
 	return perl_ctx;
@@ -50,7 +52,7 @@ void secp256k1_perl_clear(secp256k1_perl *perl_ctx)
 	secp256k1_perl_replace_xonly_pubkey(perl_ctx, NULL);
 	secp256k1_perl_replace_signature(perl_ctx, NULL);
 	secp256k1_perl_replace_schnorr_signature(perl_ctx, NULL);
-    secp256k1_perl_replace_recoverable_signature(perl_ctx, NULL);
+	secp256k1_perl_replace_recoverable_signature(perl_ctx, NULL, 0);
 
 	if (perl_ctx->pubkeys_count > 0) {
 		int i;
@@ -107,13 +109,14 @@ void secp256k1_perl_replace_schnorr_signature(secp256k1_perl *perl_ctx, unsigned
 	perl_ctx->schnorr_signature = new_signature;
 }
 
-void secp256k1_perl_replace_recoverable_signature(secp256k1_perl *perl_ctx, secp256k1_ecdsa_recoverable_signature *new_signature)
+void secp256k1_perl_replace_recoverable_signature(secp256k1_perl *perl_ctx, unsigned char *new_signature, int recovery_id)
 {
 	if (perl_ctx->recoverable_signature != NULL) {
 		free(perl_ctx->recoverable_signature);
 	}
 
 	perl_ctx->recoverable_signature = new_signature;
+	perl_ctx->recoverable_signature_recovery_id = recovery_id;
 }
 
 /* HELPERS */
@@ -421,25 +424,42 @@ _signature_recoverable(self, ...)
 		secp256k1_perl *ctx = ctx_from_sv(self);
 		if (items > 1 && SvOK(ST(1))) {
 			SV *new_signature = ST(1);
-			if (SvROK(new_signature)) {
-				croak("signature must not be a reference");
+
+			if (!SvOK(new_signature)) {
+				croak("recoverable signature must be defined");
 			}
 
-			size_t signature_size;
-			unsigned char *signature = bytestr_from_sv(new_signature, &signature_size);
-
-			if (signature_size != RECOVERABLE_SIGNATURE_SIZE) {
-				croak("invalid recoverable signature size");
+			// Expect hash ref with signature and recovery_id
+			if (!SvROK(new_signature) || SvTYPE(SvRV(new_signature)) != SVt_PVHV) {
+				croak("recoverable signature must be a hash reference with 'signature' and 'recovery_id' keys");
 			}
 
-			secp256k1_ecdsa_recoverable_signature *result_signature = malloc(sizeof *result_signature);
-			memcpy(result_signature, signature, sizeof *result_signature);
+			HV *sig_hash = (HV*) SvRV(new_signature);
 
-			secp256k1_perl_replace_recoverable_signature(ctx, result_signature);
+			SV **sig_sv = hv_fetchs(sig_hash, "signature", 0);
+			SV **recovery_id_sv = hv_fetchs(sig_hash, "recovery_id", 0);
+
+			if (!sig_sv || !recovery_id_sv) {
+				croak("recoverable signature must contain 'signature' and 'recovery_id' keys");
+			}
+
+			unsigned char *sig_data = size_bytestr_from_sv(*sig_sv, 64, "signature data");
+			int recovery_id = SvIV(*recovery_id_sv);
+
+			if (recovery_id < 0 || recovery_id > 3) {
+				croak("recovery_id must be 0, 1, 2, or 3");
+			}
+
+			unsigned char *stored_sig_data = malloc(64);
+			memcpy(stored_sig_data, sig_data, 64);
+			secp256k1_perl_replace_recoverable_signature(ctx, stored_sig_data, recovery_id);
 		}
 
 		if (ctx->recoverable_signature != NULL) {
-			RETVAL = newSVpv((char*) ctx->recoverable_signature, RECOVERABLE_SIGNATURE_SIZE);
+			HV *return_hash = newHV();
+			hv_stores(return_hash, "signature", newSVpvn((char*) ctx->recoverable_signature, 64));
+			hv_stores(return_hash, "recovery_id", newSViv(ctx->recoverable_signature_recovery_id));
+			RETVAL = newRV_noinc((SV*) return_hash);
 		}
 		else {
 			RETVAL = &PL_sv_undef;
@@ -687,10 +707,10 @@ _sign_recoverable(self, privkey, message)
 		unsigned char *message_str = size_bytestr_from_sv(message, CURVE_SIZE, "digest");
 		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private key");
 
-		secp256k1_ecdsa_recoverable_signature *result_signature = malloc(sizeof *result_signature);
+		secp256k1_ecdsa_recoverable_signature signature;
 		int result = secp256k1_ecdsa_sign_recoverable(
 			ctx->ctx,
-			result_signature,
+			&signature,
 			message_str,
 			seckey_str,
 			NULL,
@@ -698,84 +718,58 @@ _sign_recoverable(self, privkey, message)
 		);
 
 		if (!result) {
-			free(result_signature);
 			croak("signing failed (nonce generation problem?)");
 		}
 
-		secp256k1_perl_replace_recoverable_signature(ctx, result_signature);
-
-# Serializes recoverable signature to compact format (64 bytes + recovery_id)
-SV*
-_serialize_compact_recoverable(self, recoverable_signature)
-		SV* self
-		SV* recoverable_signature
-	CODE:
-		secp256k1_perl *ctx = ctx_from_sv(self);
-
-		if (!SvOK(recoverable_signature) || SvROK(recoverable_signature)) {
-			croak("recoverable signature must be defined and not a reference");
-		}
-
-		STRLEN sig_size;
-		unsigned char *sig_data = bytestr_from_sv(recoverable_signature, &sig_size);
-
-		if (sig_size != RECOVERABLE_SIGNATURE_SIZE) {
-			croak("invalid recoverable signature size");
-		}
-
-        secp256k1_ecdsa_recoverable_signature *signature = (secp256k1_ecdsa_recoverable_signature*) sig_data;
-
-		unsigned char signature_data[64];
+		unsigned char *signature_data = malloc(64);
 		int recovery_id;
 
-		int result = secp256k1_ecdsa_recoverable_signature_serialize_compact(
+		result = secp256k1_ecdsa_recoverable_signature_serialize_compact(
 			ctx->ctx,
 			signature_data,
 			&recovery_id,
-			signature
+			&signature
 		);
 
 		if (!result) {
+			free(signature_data);
 			croak("failed to serialize recoverable signature");
 		}
 
-		HV *return_hash = newHV();
-		hv_stores(return_hash, "signature", newSVpv((char*) signature_data, 64));
-		hv_stores(return_hash, "recovery_id", newSViv(recovery_id));
-
-		RETVAL = newRV_noinc((SV*) return_hash);
-	OUTPUT:
-		RETVAL
+		secp256k1_perl_replace_recoverable_signature(ctx, signature_data, recovery_id);
 
 # Recover an ECDSA public key from a recoverable signature and message hash
 void
-_recover_pubkey_recoverable(self, recoverable_signature, message_hash)
+_recover_pubkey_recoverable(self, message_hash)
 		SV* self
-		SV* recoverable_signature
 		SV* message_hash
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 
-		if (!SvOK(recoverable_signature) || SvROK(recoverable_signature)) {
-			croak("recoverable signature must be defined and not a reference");
+		if (ctx->recoverable_signature == NULL) {
+			croak("no recoverable signature available - sign first or set via _signature_recoverable");
 		}
 
 		unsigned char *message_str = size_bytestr_from_sv(message_hash, CURVE_SIZE, "message hash");
 
-		STRLEN sig_size;
-		unsigned char *sig_data = bytestr_from_sv(recoverable_signature, &sig_size);
+		secp256k1_ecdsa_recoverable_signature signature;
+		int result = secp256k1_ecdsa_recoverable_signature_parse_compact(
+			ctx->ctx,
+			&signature,
+			ctx->recoverable_signature,
+			ctx->recoverable_signature_recovery_id
+		);
 
-		if (sig_size != RECOVERABLE_SIGNATURE_SIZE) {
-			croak("invalid recoverable signature size");
+		if (!result) {
+			croak("failed to parse compact recoverable signature");
 		}
 
-		secp256k1_ecdsa_recoverable_signature *signature = (secp256k1_ecdsa_recoverable_signature*) sig_data;
 		secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
 
-		int result = secp256k1_ecdsa_recover(
+		result = secp256k1_ecdsa_recover(
 			ctx->ctx,
 			result_pubkey,
-			signature,
+			&signature,
 			message_str
 		);
 

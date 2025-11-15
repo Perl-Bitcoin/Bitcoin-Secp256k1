@@ -142,18 +142,12 @@ sub sign_digest_recoverable
 	return $self->_signature_recoverable;
 }
 
-sub serialize_compact_recoverable
-{
-	my ($self, $recoverable_signature) = @_;
-
-	return $self->_serialize_compact_recoverable($recoverable_signature);
-}
-
 sub recover_public_key
 {
 	my ($self, $recoverable_signature, $digest) = @_;
 
-	$self->_recover_pubkey_recoverable($recoverable_signature, $digest);
+	$self->_signature_recoverable($recoverable_signature);
+	$self->_recover_pubkey_recoverable($digest);
 	return $self->_pubkey;
 }
 
@@ -210,7 +204,8 @@ sub verify_digest_recoverable
 {
 	my ($self, $public_key, $signature, $digest) = @_;
 
-	$self->_recover_pubkey_recoverable($signature, $digest);
+	$self->_signature_recoverable($signature);
+	$self->_recover_pubkey_recoverable($digest);
 	my $recovered_pubkey = $self->_pubkey;
 
 	return $recovered_pubkey eq $public_key;
@@ -319,7 +314,6 @@ Bitcoin::Secp256k1 - Perl interface to libsecp256k1
 
 	# Recoverable signatures (used in Ethereum)
 	my $recoverable_signature = $secp256k1->sign_message_recoverable($private_key, $message);
-	my $compact_data = $secp256k1->serialize_compact_recoverable($recoverable_signature);
 	my $recovered_pubkey = $secp256k1->recover_public_key_message($recoverable_signature, $message);
 	my $valid = $secp256k1->verify_message_recoverable($public_key, $recoverable_signature, $message);
 
@@ -441,10 +435,20 @@ C<32>.
 
 Signs C<$message>, which may be a bytestring of any length, with
 C<$private_key>, which must be a bytestring of length C<32>. Returns
-a recoverable C<$signature> as a bytestring.
+a hash reference containing the recoverable signature.
 
 C<$message> is first hashed with double SHA256 (known an HASH256 in Bitcoin)
 before passing it to signing algorithm (which expects length C<32> bytestrings).
+
+The returned hash reference contains:
+
+=over
+
+=item C<signature> - 64 bytes containing r (32 bytes) and s (32 bytes) values
+
+=item C<recovery_id> - Integer from 0 to 3 indicating which recovery method to use
+
+=back
 
 Recoverable signatures allow the public key to be recovered from the signature
 and message, which is useful for systems like Ethereum where only the signature
@@ -475,30 +479,14 @@ C<$message_digest> to be a bytestring of length C<32>.
 Same as L</sign_message_recoverable>, but it does not perform double SHA256 on its input.
 Because of that, C<$message_digest> must be a bytestring of length C<32>.
 
-=head3 serialize_compact_recoverable
-
-	$compact_data = $secp256k1->serialize_compact_recoverable($recoverable_signature)
-
-Serializes a recoverable signature into compact format. Takes a C<$recoverable_signature>
-(as returned by signing methods) and returns a hash reference containing:
-
-=over
-
-=item C<signature> - 64 bytes containing r (32 bytes) and s (32 bytes) values
-
-=item C<recovery_id> - Integer from 0 to 3 indicating which recovery method to use
-
-=back
-
-This format is commonly used in Ethereum transactions where the signature is
-represented as r, s, v (where v = recovery_id + 27 for legacy transactions).
+Returns the same hash reference format as L</sign_message_recoverable>.
 
 =head3 recover_public_key
 
 	$public_key = $secp256k1->recover_public_key($recoverable_signature, $message_digest)
 
 Recovers the public key from a recoverable signature and message digest.
-Takes a C<$recoverable_signature> (as returned by signing methods) and
+Takes a C<$recoverable_signature> (hash reference as returned by signing methods) and
 C<$message_digest> (bytestring of length C<32>). Returns the recovered
 public key in compressed form.
 
@@ -544,7 +532,7 @@ algorithm.
 
 	$valid = $secp256k1->verify_message_recoverable($public_key, $signature, $message)
 
-Verifies a recoverable C<$signature> of C<$message> (bytestring of any length)
+Verifies a recoverable C<$signature> (hash reference as returned by signing methods) of C<$message> (bytestring of any length)
 against C<$public_key> (compressed or uncompressed, bytestring). Returns true
 if verification is successful.
 

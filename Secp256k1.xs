@@ -10,7 +10,7 @@
 
 #define CURVE_SIZE 32
 #define SCHNORR_SIGNATURE_SIZE 64
-#define RECOVERABLE_SIGNATURE_SIZE 65
+#define RECOVERABLE_SIGNATURE_SIZE 64
 
 typedef struct {
 	secp256k1_context *ctx;
@@ -443,21 +443,21 @@ _signature_recoverable(self, ...)
 				croak("recoverable signature must contain 'signature' and 'recovery_id' keys");
 			}
 
-			unsigned char *sig_data = size_bytestr_from_sv(*sig_sv, 64, "signature data");
+			unsigned char *sig_data = size_bytestr_from_sv(*sig_sv, RECOVERABLE_SIGNATURE_SIZE, "signature data");
 			int recovery_id = SvIV(*recovery_id_sv);
 
 			if (recovery_id < 0 || recovery_id > 3) {
 				croak("recovery_id must be 0, 1, 2, or 3");
 			}
 
-			unsigned char *stored_sig_data = malloc(64);
-			memcpy(stored_sig_data, sig_data, 64);
+			unsigned char *stored_sig_data = malloc(RECOVERABLE_SIGNATURE_SIZE);
+			memcpy(stored_sig_data, sig_data, RECOVERABLE_SIGNATURE_SIZE);
 			secp256k1_perl_replace_recoverable_signature(ctx, stored_sig_data, recovery_id);
 		}
 
 		if (ctx->recoverable_signature != NULL) {
 			HV *return_hash = newHV();
-			hv_stores(return_hash, "signature", newSVpvn((char*) ctx->recoverable_signature, 64));
+			hv_stores(return_hash, "signature", newSVpvn((char*) ctx->recoverable_signature, RECOVERABLE_SIGNATURE_SIZE));
 			hv_stores(return_hash, "recovery_id", newSViv(ctx->recoverable_signature_recovery_id));
 			RETVAL = newRV_noinc((SV*) return_hash);
 		}
@@ -721,7 +721,7 @@ _sign_recoverable(self, privkey, message)
 			croak("signing failed (nonce generation problem?)");
 		}
 
-		unsigned char *signature_data = malloc(64);
+		unsigned char *signature_data = malloc(RECOVERABLE_SIGNATURE_SIZE);
 		int recovery_id;
 
 		result = secp256k1_ecdsa_recoverable_signature_serialize_compact(

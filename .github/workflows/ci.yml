@@ -40,6 +40,7 @@ jobs:
         rm /github/home/.cpanm/work/*/build.log
         dzil authordeps --missing | cpanm --notest
         dzil listdeps --develop --missing | cpanm --notest
+        cpanm --notest Test::MemoryGrowth
 
     - name: Show Errors
       if:  ${{ failure() }}

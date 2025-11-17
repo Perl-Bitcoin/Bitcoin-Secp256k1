@@ -685,6 +685,16 @@ L<Bitcoin::Crypto>
 
 Bartosz Jarzyna E<lt>bbrtj.pro@gmail.comE<gt>
 
+=head2 Contributors
+
+In no particular order:
+
+=over
+
+=item * Reginaldo Costa
+
+=back
+
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2024 by Bartosz Jarzyna

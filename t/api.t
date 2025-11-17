@@ -145,7 +145,7 @@ subtest 'should sign and verify a digest (recoverable)' => sub {
 	ok defined($rec_sig), 'recoverable digest signed ok';
 
 	# Test recovery
-	my $recovered_pubkey = $secp->recover_public_key($rec_sig, $digest);
+	my $recovered_pubkey = $secp->recover_public_key_digest($rec_sig, $digest);
 	is $recovered_pubkey, $t{pubkey}, 'public key recovered from digest ok';
 
 	# Test verification
@@ -183,7 +183,7 @@ subtest 'ethereum yellowpaper specification' => sub {
 			ok $v >= 0 && $v <= 1, 'v in valid range [0,1]';
 
 			# Test recovery
-			my $recovered_pubkey = $secp->recover_public_key($rec_sig, $case->{message});
+			my $recovered_pubkey = $secp->recover_public_key_digest($rec_sig, $case->{message});
 			my $original_pubkey = $secp->create_public_key($case->{privkey});
 			is $recovered_pubkey, $original_pubkey, 'recovery matches original';
 

@@ -142,7 +142,7 @@ sub sign_digest_recoverable
 	return $self->_signature_recoverable;
 }
 
-sub recover_public_key
+sub recover_public_key_digest
 {
 	my ($self, $recoverable_signature, $digest) = @_;
 
@@ -155,7 +155,7 @@ sub recover_public_key_message
 {
 	my ($self, $recoverable_signature, $message) = @_;
 
-	return $self->recover_public_key($recoverable_signature, sha256(sha256($message)));
+	return $self->recover_public_key_digest($recoverable_signature, sha256(sha256($message)));
 }
 
 sub verify_message
@@ -481,9 +481,9 @@ Because of that, C<$message_digest> must be a bytestring of length C<32>.
 
 Returns the same hash reference format as L</sign_message_recoverable>.
 
-=head3 recover_public_key
+=head3 recover_public_key_digest
 
-	$public_key = $secp256k1->recover_public_key($recoverable_signature, $message_digest)
+	$public_key = $secp256k1->recover_public_key_digest($recoverable_signature, $message_digest)
 
 Recovers the public key from a recoverable signature and message digest.
 Takes a C<$recoverable_signature> (hash reference as returned by signing methods) and
@@ -498,7 +498,7 @@ the public key separately.
 
 	$public_key = $secp256k1->recover_public_key_message($recoverable_signature, $message)
 
-Same as L</recover_public_key>, but performs double SHA256 on C<$message> first.
+Same as L</recover_public_key_digest>, but performs double SHA256 on C<$message> first.
 C<$message> may be a bytestring of any length.
 
 =head3 verify_message

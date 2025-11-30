@@ -427,6 +427,15 @@ L<Alien::libsecp256k1>.
 
 =head1 INTERFACE
 
+Please note that the module does not treat corrupted data (too short or too
+long, badly encoded) as valid arguments and will throw an exception if it gets
+them in place of public keys, private keys or signatures. Same is true for
+undefined values, which will cause the module to print the help message with
+function usage. For some functions like L</verify_digest> this means that the
+function can fail either by returning false or by throwing an exception. This
+can be used to distinguish corrupted data (exception is raised) from invalid
+data (false is returned).
+
 =head2 Attributes
 
 None - object is a blessed readonly scalar reference with a memory address of a

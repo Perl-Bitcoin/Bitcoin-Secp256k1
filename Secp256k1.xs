@@ -426,7 +426,7 @@ _signature_recoverable(self, ...)
 				croak("recoverable signature must be defined");
 			}
 
-			// Expect hash ref with signature and recovery_id
+			/* Expect hash ref with signature and recovery_id */
 			if (!SvROK(new_signature) || SvTYPE(SvRV(new_signature)) != SVt_PVHV) {
 				croak("recoverable signature must be a hash reference with 'signature' and 'recovery_id' keys");
 			}

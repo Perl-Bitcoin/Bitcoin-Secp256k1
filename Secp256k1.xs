@@ -13,11 +13,53 @@
 #define RECOVERABLE_SIGNATURE_SIZE 64
 
 typedef struct {
+	void **items;
+	unsigned int item_count;
+	unsigned int capacity;
+} secp256k1_perl_multifield;
+
+secp256k1_perl_multifield* secp256k1_perl_multifield_create()
+{
+	secp256k1_perl_multifield *result = malloc (sizeof *result);
+	result->capacity = 1;
+	result->items = malloc(sizeof *result->items * result->capacity);
+	result->item_count = 0;
+
+	return result;
+}
+
+void secp256k1_perl_multifield_clear(secp256k1_perl_multifield *multifield)
+{
+	int i;
+	for (i = 0; i < multifield->item_count; ++i) {
+		free(multifield->items[i]);
+	}
+
+	multifield->item_count = 0;
+}
+
+/* IMPORTANT: clear must be called first explicitly (to avoid memory leak) */
+void secp256k1_perl_multifield_destroy(secp256k1_perl_multifield *multifield)
+{
+	free(multifield->items);
+	free(multifield);
+}
+
+void secp256k1_perl_multifield_push(secp256k1_perl_multifield *multifield, void *value)
+{
+	if (multifield->item_count == multifield->capacity) {
+		multifield->capacity *= 2;
+		multifield->items = realloc(multifield->items, sizeof *multifield->items * multifield->capacity);
+	}
+
+	multifield->items[multifield->item_count] = value;
+	multifield->item_count += 1;
+}
+
+typedef struct {
 	secp256k1_context *ctx;
-	secp256k1_pubkey *pubkey;
+	secp256k1_perl_multifield *pubkeys;
 	secp256k1_xonly_pubkey *xonly_pubkey;
-	secp256k1_pubkey **pubkeys;
-	unsigned int pubkeys_count;
 	secp256k1_ecdsa_signature *signature;
 	unsigned char *schnorr_signature;
 	secp256k1_ecdsa_recoverable_signature *recoverable_signature;
@@ -34,50 +76,39 @@ secp256k1_perl* secp256k1_perl_create()
 	secp256k1_context *secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 	secp256k1_perl *perl_ctx = malloc(sizeof *perl_ctx);
 	perl_ctx->ctx = secp_ctx;
-	perl_ctx->pubkey = NULL;
+	perl_ctx->pubkeys = secp256k1_perl_multifield_create();
 	perl_ctx->xonly_pubkey = NULL;
 	perl_ctx->signature = NULL;
 	perl_ctx->schnorr_signature = NULL;
 	perl_ctx->recoverable_signature = NULL;
-	perl_ctx->pubkeys = NULL;
-	perl_ctx->pubkeys_count = 0;
+
 	return perl_ctx;
 }
 
 void secp256k1_perl_clear(secp256k1_perl *perl_ctx)
 {
-	secp256k1_perl_replace_pubkey(perl_ctx, NULL);
 	secp256k1_perl_replace_xonly_pubkey(perl_ctx, NULL);
 	secp256k1_perl_replace_signature(perl_ctx, NULL);
 	secp256k1_perl_replace_schnorr_signature(perl_ctx, NULL);
 	secp256k1_perl_replace_recoverable_signature(perl_ctx, NULL);
 
-	if (perl_ctx->pubkeys_count > 0) {
-		int i;
-		for (i = 0; i < perl_ctx->pubkeys_count; ++i) {
-			free(perl_ctx->pubkeys[i]);
-		}
-
-		free(perl_ctx->pubkeys);
-		perl_ctx->pubkeys_count = 0;
-		perl_ctx->pubkeys = NULL;
-	}
+	secp256k1_perl_multifield_clear(perl_ctx->pubkeys);
 }
 
 void secp256k1_perl_destroy(secp256k1_perl *perl_ctx)
 {
 	secp256k1_perl_clear(perl_ctx);
+	secp256k1_perl_multifield_destroy(perl_ctx->pubkeys);
 	secp256k1_context_destroy(perl_ctx->ctx);
 	free(perl_ctx);
 }
 
 void secp256k1_perl_replace_pubkey(secp256k1_perl *perl_ctx, secp256k1_pubkey *new_pubkey)
 {
-	if (perl_ctx->pubkey != NULL) {
-		free(perl_ctx->pubkey);
+	secp256k1_perl_multifield_clear(perl_ctx->pubkeys);
+	if (new_pubkey != NULL) {
+		secp256k1_perl_multifield_push(perl_ctx->pubkeys, new_pubkey);
 	}
-
-	perl_ctx->pubkey = new_pubkey;
 }
 
 void secp256k1_perl_replace_xonly_pubkey(secp256k1_perl *perl_ctx, secp256k1_xonly_pubkey *new_pubkey)
@@ -114,6 +145,15 @@ void secp256k1_perl_replace_recoverable_signature(secp256k1_perl *perl_ctx, secp
 	}
 
 	perl_ctx->recoverable_signature = new_signature;
+}
+
+secp256k1_pubkey* secp256k1_perl_first_pubkey(secp256k1_perl *perl_ctx)
+{
+	if (perl_ctx->pubkeys->item_count == 0) {
+		croak("missing public key");
+	}
+
+	return perl_ctx->pubkeys->items[0];
 }
 
 /* HELPERS */
@@ -291,14 +331,14 @@ _pubkey(self, ...)
 			compression = SECP256K1_EC_UNCOMPRESSED;
 		}
 
-		if (ctx->pubkey != NULL) {
+		if (ctx->pubkeys->item_count > 0) {
 			unsigned char key_output[65];
 			size_t key_size = 65;
 			secp256k1_ec_pubkey_serialize(
 				ctx->ctx,
 				key_output,
 				&key_size,
-				ctx->pubkey,
+				secp256k1_perl_first_pubkey(ctx),
 				compression
 			);
 
@@ -505,20 +545,18 @@ _signature_recoverable(self, ...)
 		RETVAL
 
 void
-_push_pubkey(self)
+_push_pubkey(self, ...)
 		SV *self
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 
-		if (ctx->pubkeys_count > 0) {
-			ctx->pubkeys = realloc(ctx->pubkeys, sizeof *ctx->pubkeys * (ctx->pubkeys_count + 1));
+		if (items > 1 && SvOK(ST(1))) {
+			SV *pubkey_data = ST(1);
+			secp256k1_perl_multifield_push(ctx->pubkeys, pubkey_from_sv(ctx, pubkey_data));
 		}
 		else {
-			ctx->pubkeys = malloc(sizeof *ctx->pubkeys);
+			croak("missing public key to push");
 		}
-
-		ctx->pubkeys[ctx->pubkeys_count++] = ctx->pubkey;
-		ctx->pubkey = NULL;
 
 # Creates a public key from a private key
 void
@@ -549,16 +587,13 @@ _convert_pubkey_xonly(self)
 		SV *self
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		if (ctx->pubkey == NULL) {
-			croak("converting pubkey to xonly requires a pubkey");
-		}
 
 		secp256k1_xonly_pubkey *xonly_pubkey = malloc(sizeof *xonly_pubkey);
 		int result = secp256k1_xonly_pubkey_from_pubkey(
 			ctx->ctx,
 			xonly_pubkey,
 			NULL,
-			ctx->pubkey
+			secp256k1_perl_first_pubkey(ctx)
 		);
 
 		if (!result) {
@@ -597,8 +632,8 @@ _verify(self, message)
 		SV *message
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
-		if (ctx->pubkey == NULL || ctx->signature == NULL) {
-			croak("verification requires both pubkey and signature");
+		if (ctx->signature == NULL) {
+			croak("verification requires a signature");
 		}
 
 		unsigned char *message_str = size_bytestr_from_sv(message, CURVE_SIZE, "digest");
@@ -607,7 +642,7 @@ _verify(self, message)
 			ctx->ctx,
 			ctx->signature,
 			message_str,
-			ctx->pubkey
+			secp256k1_perl_first_pubkey(ctx)
 		);
 
 		RETVAL = result ? &PL_sv_yes : &PL_sv_no;
@@ -846,7 +881,7 @@ _pubkey_negate(self)
 
 		int result = secp256k1_ec_pubkey_negate(
 			ctx->ctx,
-			ctx->pubkey
+			secp256k1_perl_first_pubkey(ctx)
 		);
 
 		/* NOTE: result is always 1 */
@@ -895,7 +930,7 @@ _pubkey_add(self, tweak)
 
 		int result = secp256k1_ec_pubkey_tweak_add(
 			ctx->ctx,
-			ctx->pubkey,
+			secp256k1_perl_first_pubkey(ctx),
 			tweak_str
 		);
 
@@ -944,7 +979,7 @@ _pubkey_mul(self, tweak)
 
 		int result = secp256k1_ec_pubkey_tweak_mul(
 			ctx->ctx,
-			ctx->pubkey,
+			secp256k1_perl_first_pubkey(ctx),
 			tweak_str
 		);
 
@@ -963,8 +998,8 @@ _pubkey_combine(self)
 		int result = secp256k1_ec_pubkey_combine(
 			ctx->ctx,
 			result_pubkey,
-			(const secp256k1_pubkey * const *) ctx->pubkeys,
-			ctx->pubkeys_count
+			(const secp256k1_pubkey * const *) ctx->pubkeys->items,
+			ctx->pubkeys->item_count
 		);
 
 		if (!result) {

@@ -372,14 +372,12 @@ sub combine_public_keys
 	(@public_keys > 0)
 		or _croak_usage(qw($public_key [@more_public_keys]));
 
-	$self->_clear;
+	$self->_pubkey(undef);
 	foreach my $pub (@public_keys) {
-
 		(defined $pub)
 			or _croak_usage(qw($public_key [@more_public_keys]));
 
-		$self->_pubkey($pub);
-		$self->_push_pubkey;
+		$self->_push_pubkey($pub);
 	}
 
 	$self->_pubkey_combine;

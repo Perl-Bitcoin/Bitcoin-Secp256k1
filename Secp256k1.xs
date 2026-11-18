@@ -240,10 +240,10 @@ void copy_bytestr(unsigned char *to, unsigned char *from, size_t size)
 	}
 }
 
-void clean_secret(unsigned char *secret)
+void clean_secret(unsigned char *secret, int size)
 {
 	int i;
-	for (i = 0; i < CURVE_SIZE; ++i) {
+	for (i = 0; i < size; ++i) {
 		secret[i] = 0;
 	}
 }
@@ -712,20 +712,6 @@ _sign_schnorr(self, privkey, message)
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 
-		unsigned char *message_str = size_bytestr_from_sv(message, CURVE_SIZE, "digest");
-		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private key");
-
-		secp256k1_keypair keypair;
-		int result = secp256k1_keypair_create(
-			ctx->ctx,
-			&keypair,
-			seckey_str
-		);
-
-		if (!result) {
-			croak("creating a keypair failed");
-		}
-
 		/* Calling perl function to get auxiliary randomness */
 		dSP;
 		PUSHMARK(SP);
@@ -753,6 +739,20 @@ _sign_schnorr(self, privkey, message)
 			: NULL
 			;
 
+		unsigned char *message_str = size_bytestr_from_sv(message, CURVE_SIZE, "digest");
+		unsigned char *seckey_str = size_bytestr_from_sv(privkey, CURVE_SIZE, "private key");
+
+		secp256k1_keypair keypair;
+		int result = secp256k1_keypair_create(
+			ctx->ctx,
+			&keypair,
+			seckey_str
+		);
+
+		if (!result) {
+			croak("creating a keypair failed");
+		}
+
 		unsigned char *result_signature = malloc(sizeof *result_signature * SCHNORR_SIGNATURE_SIZE);
 		result = secp256k1_schnorrsig_sign32(
 			ctx->ctx,
@@ -761,6 +761,9 @@ _sign_schnorr(self, privkey, message)
 			&keypair,
 			randomize
 		);
+
+		/* keypair is guaranteed by docs to contain 96 bytes */
+		clean_secret(keypair.data, 96);
 
 		if (!result) {
 			free(result_signature);
@@ -865,12 +868,12 @@ _privkey_negate(self, privkey)
 		);
 
 		if (!result) {
-			clean_secret(new_seckey);
+			clean_secret(new_seckey, CURVE_SIZE);
 			croak("resulting negated privkey is not valid");
 		}
 
 		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
-		clean_secret(new_seckey);
+		clean_secret(new_seckey, CURVE_SIZE);
 	OUTPUT:
 		RETVAL
 
@@ -912,12 +915,12 @@ _privkey_add(self, privkey, tweak)
 		);
 
 		if (!result) {
-			clean_secret(new_seckey);
+			clean_secret(new_seckey, CURVE_SIZE);
 			croak("resulting added privkey is not valid");
 		}
 
 		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
-		clean_secret(new_seckey);
+		clean_secret(new_seckey, CURVE_SIZE);
 	OUTPUT:
 		RETVAL
 
@@ -961,12 +964,12 @@ _privkey_mul(self, privkey, tweak)
 		);
 
 		if (!result) {
-			clean_secret(new_seckey);
+			clean_secret(new_seckey, CURVE_SIZE);
 			croak("multiplication arguments are not valid");
 		}
 
 		RETVAL = newSVpv((char*) new_seckey, CURVE_SIZE);
-		clean_secret(new_seckey);
+		clean_secret(new_seckey, CURVE_SIZE);
 	OUTPUT:
 		RETVAL
 

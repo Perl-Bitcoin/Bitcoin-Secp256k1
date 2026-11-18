@@ -748,8 +748,10 @@ _sign_schnorr(self, privkey, message)
 		tmp = POPs;
 		PUTBACK;
 
-		/* Randomness dump */
-		/* for (int i = 0; i < len; ++i) { warn("%d: %d", i, randomize[i]); } */
+		unsigned char *randomize = SvOK(tmp)
+			? size_bytestr_from_sv(tmp, CURVE_SIZE, "auxiliary randomness")
+			: NULL
+			;
 
 		unsigned char *result_signature = malloc(sizeof *result_signature * SCHNORR_SIGNATURE_SIZE);
 		result = secp256k1_schnorrsig_sign32(
@@ -757,7 +759,7 @@ _sign_schnorr(self, privkey, message)
 			result_signature,
 			message_str,
 			&keypair,
-			SvOK(tmp) ? size_bytestr_from_sv(tmp, CURVE_SIZE, "auxiliary randomness") : NULL
+			randomize
 		);
 
 		if (!result) {

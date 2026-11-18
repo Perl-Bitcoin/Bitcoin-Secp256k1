@@ -297,7 +297,7 @@ new(classname)
 		/* Blessing the object */
 		SV *secp_sv = newSViv(0);
 		RETVAL = sv_setref_iv(secp_sv, SvPVbyte_nolen(classname), (uintptr_t) ctx);
-		SvREADONLY_on(secp_sv);
+		SvREADONLY_on(SvRV(secp_sv));
 	OUTPUT:
 		RETVAL
 

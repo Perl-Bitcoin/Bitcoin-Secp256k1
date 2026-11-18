@@ -11,6 +11,13 @@ use Secp256k1Test;
 my $secp = Bitcoin::Secp256k1->new;
 my %t = Secp256k1Test->test_data;
 
+subtest 'should not allow changing the reference address' => sub {
+	my $obj = Bitcoin::Secp256k1->new;
+
+	my $ex = dies { $$obj = 0 };
+	like $ex, qr{modification of a read-only value attempted}i, 'exception ok';
+};
+
 subtest 'should die on constructor with arguments' => sub {
 	my $ex = dies { Bitcoin::Secp256k1->new('argument') };
 	like $ex, qr/\QUsage: Bitcoin::Secp256k1::new(classname)\E/, 'exception ok';

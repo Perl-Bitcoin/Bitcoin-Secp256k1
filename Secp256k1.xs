@@ -258,6 +258,14 @@ SV*
 new(classname)
 		SV *classname
 	CODE:
+		const char *classname_str;
+		if (sv_isobject(classname)) {
+			classname_str = sv_reftype(SvRV(classname), 1);
+		}
+		else {
+			classname_str = SvPVbyte_nolen(classname);
+		}
+
 		/* Calling perl function to randomize context */
 		dSP;
 		PUSHMARK(SP);
@@ -296,7 +304,7 @@ new(classname)
 
 		/* Blessing the object */
 		SV *secp_sv = newSViv(0);
-		RETVAL = sv_setref_iv(secp_sv, SvPVbyte_nolen(classname), (uintptr_t) ctx);
+		RETVAL = sv_setref_iv(secp_sv, classname_str, (uintptr_t) ctx);
 		SvREADONLY_on(SvRV(secp_sv));
 	OUTPUT:
 		RETVAL

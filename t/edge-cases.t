@@ -84,6 +84,13 @@ subtest 'should die on invalid combination of public keys' => sub {
 	like $ex, qr/the input does not appear to be a valid public key/, 'exception ok';
 };
 
+subtest 'should always bless into a classname' => sub {
+	my $o1 = Bitcoin::Secp256k1->new;
+	my $o2 = $o1->new;
+
+	isa_ok $o2, 'Bitcoin::Secp256k1';
+};
+
 # cases in api.t are tweaked, use at least one case from a BIP for Schnorr
 subtest 'should generate the same signatures as BIP340 test cases' => sub {
 	my $priv = pack 'H*', 'b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef';

@@ -126,5 +126,17 @@ subtest 'should fail on no pubkeys to combine' => sub {
 		qr{usage: \$secp256k1->combine_public_keys\(\$public_key, \[\@more_public_keys\]\)};
 };
 
+subtest 'should disallow broken integers in recovery_id' => sub {
+	my $rec_sig = $secp->sign_message_recoverable($t{privkey}, $t{preimage});
+
+	$rec_sig->{recovery_id} .= 'a';
+	like dies { $secp->recover_public_key_message($rec_sig, $t{preimage}) },
+		qr{recovery_id must be 0, 1, 2, or 3};
+
+	$rec_sig->{recovery_id} = undef;
+	like dies { $secp->recover_public_key_message($rec_sig, $t{preimage}) },
+		qr{recovery_id must be 0, 1, 2, or 3};
+};
+
 done_testing;
 

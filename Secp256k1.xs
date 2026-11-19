@@ -498,7 +498,18 @@ _signature_recoverable(self, ...)
 			}
 
 			unsigned char *sig_data = size_bytestr_from_sv(*sig_sv, RECOVERABLE_SIGNATURE_SIZE, "signature data");
-			int recovery_id = SvIV(*recovery_id_sv);
+
+			int recovery_id = -1;
+
+			/* validate the recovery_id to be an integer */
+			if (SvOK(*recovery_id_sv)) {
+				STRLEN recovery_id_len;
+				const char *recovery_id_str = SvPV(*recovery_id_sv, recovery_id_len);
+				int recovery_id_flags = grok_number(recovery_id_str, recovery_id_len, NULL);
+				if (recovery_id_flags && !(recovery_id_flags & IS_NUMBER_NOT_INT)) {
+					recovery_id = SvIV(*recovery_id_sv);
+				}
+			}
 
 			if (recovery_id < 0 || recovery_id > 3) {
 				croak("recovery_id must be 0, 1, 2, or 3");

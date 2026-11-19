@@ -241,7 +241,7 @@ void copy_bytestr(unsigned char *to, unsigned char *from, size_t size)
 	}
 }
 
-void clean_secret(unsigned char *secret, int size)
+void clean_secret(unsigned char *secret, size_t size)
 {
 	int i;
 	for (i = 0; i < size; ++i) {
@@ -289,18 +289,19 @@ new(classname)
 		tmp = POPs;
 		PUTBACK;
 
+		unsigned char *randomize = SvOK(tmp)
+			? size_bytestr_from_sv(tmp, CURVE_SIZE, "random data")
+			: NULL
+			;
+
 		/* Randomness dump */
 		/* for (int i = 0; i < len; ++i) { warn("%d: %d", i, randomize[i]); } */
 
 		secp256k1_perl* ctx = secp256k1_perl_create();
 
-		if (SvOK(tmp)) {
-			unsigned char *randomize = size_bytestr_from_sv(tmp, CURVE_SIZE, "random data");
-
-			if (!secp256k1_context_randomize(ctx->ctx, randomize)) {
-				secp256k1_perl_destroy(ctx);
-				croak("Failed to randomize secp256k1 context");
-			}
+		if (randomize != NULL && !secp256k1_context_randomize(ctx->ctx, randomize)) {
+			secp256k1_perl_destroy(ctx);
+			croak("Failed to randomize secp256k1 context");
 		}
 
 		/* Blessing the object */

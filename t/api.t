@@ -132,7 +132,7 @@ subtest 'should sign and verify a message (recoverable)' => sub {
 	ok $secp->verify_message_recoverable($t{pubkey}, $rec_sig, $t{preimage}), 'recoverable message verified ok';
 
 	# Test with wrong pubkey should fail
-	my $wrong_pubkey = pack 'H*', '025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee6358';
+	my $wrong_pubkey = pack 'H*', '025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee6360';
 	ok !$secp->verify_message_recoverable($wrong_pubkey, $rec_sig, $t{preimage}),
 		'wrong pubkey verification fails ok';
 };

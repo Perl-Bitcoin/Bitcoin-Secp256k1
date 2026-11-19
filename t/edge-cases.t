@@ -138,5 +138,10 @@ subtest 'should disallow broken integers in recovery_id' => sub {
 		qr{recovery_id must be 0, 1, 2, or 3};
 };
 
+subtest 'should verify recoverable digest with uncompressed public key' => sub {
+	my $rec_sig = $secp->sign_message_recoverable($t{privkey}, $t{preimage});
+	ok $secp->verify_message_recoverable($t{pubkey_unc}, $rec_sig, $t{preimage});
+};
+
 done_testing;
 

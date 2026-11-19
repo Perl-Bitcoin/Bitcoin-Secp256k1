@@ -280,7 +280,7 @@ sub verify_digest_recoverable
 	$self->_recover_pubkey_recoverable($digest);
 	my $recovered_pubkey = $self->_pubkey;
 
-	return $recovered_pubkey eq $public_key;
+	return $recovered_pubkey eq $self->_pubkey($public_key, !!1);
 }
 
 sub negate_public_key

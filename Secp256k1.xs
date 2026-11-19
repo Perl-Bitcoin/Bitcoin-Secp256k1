@@ -252,7 +252,7 @@ void clean_secret(unsigned char *secret, int size)
 
 MODULE = Bitcoin::Secp256k1				PACKAGE = Bitcoin::Secp256k1
 
-PROTOTYPES: DISABLED
+PROTOTYPES: DISABLE
 
 SV*
 new(classname)

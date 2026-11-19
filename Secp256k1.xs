@@ -483,10 +483,6 @@ _signature_recoverable(self, ...)
 		if (items > 1 && SvOK(ST(1))) {
 			SV *new_signature = ST(1);
 
-			if (!SvOK(new_signature)) {
-				croak("recoverable signature must be defined");
-			}
-
 			/* Expect hash ref with signature and recovery_id */
 			if (!SvROK(new_signature) || SvTYPE(SvRV(new_signature)) != SVt_PVHV) {
 				croak("recoverable signature must be a hash reference with 'signature' and 'recovery_id' keys");

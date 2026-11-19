@@ -605,12 +605,13 @@ _convert_pubkey_xonly(self)
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 
+		secp256k1_pubkey *first_key = secp256k1_perl_first_pubkey(ctx);
 		secp256k1_xonly_pubkey *xonly_pubkey = malloc(sizeof *xonly_pubkey);
 		int result = secp256k1_xonly_pubkey_from_pubkey(
 			ctx->ctx,
 			xonly_pubkey,
 			NULL,
-			secp256k1_perl_first_pubkey(ctx)
+			first_key
 		);
 
 		if (!result) {

@@ -771,6 +771,8 @@ Schnorr module, and the recovery module. It currently does not aim to cover
 every usage path, most notably signing variable length messages with Schnorr
 (without digesting first).
 
+This module is currently not thread-safe.
+
 =head1 CAVEATS
 
 Documentation of libsecp256k1 recommends keeping secrets on the stack (not the

@@ -1017,6 +1017,10 @@ _pubkey_combine(self)
 	CODE:
 		secp256k1_perl *ctx = ctx_from_sv(self);
 
+		if (ctx->pubkeys->item_count == 0) {
+			croak("there are no public keys to combine");
+		}
+
 		secp256k1_pubkey *result_pubkey = malloc(sizeof *result_pubkey);
 		int result = secp256k1_ec_pubkey_combine(
 			ctx->ctx,
